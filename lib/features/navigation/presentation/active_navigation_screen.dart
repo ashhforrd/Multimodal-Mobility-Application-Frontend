@@ -74,10 +74,12 @@ class _ActiveNavigationScreenState
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           children: [
             NavigationMap(
+              key: const Key('active-navigation-map'),
               route: route,
               currentPosition: navigation.currentPosition,
               destination: route.destination,
               height: 250,
+              followUser: true,
             ),
             const SizedBox(height: 14),
             _JourneySummary(

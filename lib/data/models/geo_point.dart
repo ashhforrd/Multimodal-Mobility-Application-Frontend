@@ -1,8 +1,13 @@
 class GeoPoint {
-  const GeoPoint({required this.latitude, required this.longitude});
+  const GeoPoint({
+    required this.latitude,
+    required this.longitude,
+    this.courseDegrees,
+  });
 
   final double latitude;
   final double longitude;
+  final double? courseDegrees;
 
   @override
   bool operator ==(Object other) =>

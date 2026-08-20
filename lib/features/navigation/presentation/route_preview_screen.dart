@@ -1,11 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../data/models/destination.dart';
+import '../../../data/models/geo_point.dart';
 import '../../../shared/widgets/navigation_map.dart';
 import '../application/navigation_controller.dart';
+
+final _originPlaceProvider =
+    FutureProvider.autoDispose.family<Destination, GeoPoint>(
+  (ref, point) => ref.watch(mapServiceProvider).reverseGeocode(point),
+);
 
 class RoutePreviewScreen extends ConsumerWidget {
   const RoutePreviewScreen({super.key});
@@ -39,6 +48,19 @@ class RoutePreviewScreen extends ConsumerWidget {
         ),
       );
     }
+    final originPlace = ref.watch(_originPlaceProvider(route.origin));
+    final originCoordinates = '${route.origin.latitude.toStringAsFixed(5)}, '
+        '${route.origin.longitude.toStringAsFixed(5)}';
+    final originName = originPlace.when(
+      data: (place) => place.name,
+      loading: () => 'Lokasi saat ini',
+      error: (_, __) => 'Lokasi saat ini',
+    );
+    final originAddress = originPlace.when(
+      data: (place) => place.address,
+      loading: () => 'Mengenali lokasi…',
+      error: (_, __) => originCoordinates,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Pratinjau rute')),
@@ -53,36 +75,10 @@ class RoutePreviewScreen extends ConsumerWidget {
               height: 260,
             ),
             const SizedBox(height: 20),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEAF2FF),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    LucideIcons.mapPin,
-                    color: AppTheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 13),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        route.destination.name,
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 3),
-                      Text(route.destination.address),
-                    ],
-                  ),
-                ),
-              ],
+            _RouteEndpoints(
+              originName: originName,
+              originAddress: originAddress,
+              destination: route.destination,
             ),
             const SizedBox(height: 18),
             Row(children: [
@@ -205,9 +201,10 @@ class RoutePreviewScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 10),
             FilledButton.icon(
-              onPressed: () async {
-                await ref.read(navigationProvider.notifier).start();
-                if (context.mounted) context.go('/navigation');
+              onPressed: () {
+                final controller = ref.read(navigationProvider.notifier);
+                context.go('/navigation');
+                unawaited(controller.start());
               },
               icon: const Icon(LucideIcons.navigation, size: 18),
               label: const Text('Mulai navigasi'),
@@ -217,6 +214,115 @@ class RoutePreviewScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+class _RouteEndpoints extends StatelessWidget {
+  const _RouteEndpoints({
+    required this.originName,
+    required this.originAddress,
+    required this.destination,
+  });
+
+  final String originName;
+  final String originAddress;
+  final Destination destination;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        key: const Key('route-endpoints'),
+        child: Padding(
+          padding: const EdgeInsets.all(18),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Ringkasan perjalanan',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 16),
+              _Endpoint(
+                icon: LucideIcons.locateFixed,
+                label: 'Titik awal',
+                name: originName,
+                address: originAddress,
+              ),
+              const Padding(
+                padding: EdgeInsets.only(left: 20),
+                child: SizedBox(
+                  height: 22,
+                  child: VerticalDivider(
+                    width: 1,
+                    thickness: 2,
+                    color: Color(0xFFB8CDED),
+                  ),
+                ),
+              ),
+              _Endpoint(
+                icon: LucideIcons.mapPin,
+                label: 'Tujuan',
+                name: destination.name,
+                address: destination.address,
+              ),
+            ],
+          ),
+        ),
+      );
+}
+
+class _Endpoint extends StatelessWidget {
+  const _Endpoint({
+    required this.icon,
+    required this.label,
+    required this.name,
+    required this.address,
+  });
+
+  final IconData icon;
+  final String label;
+  final String name;
+  final String address;
+
+  @override
+  Widget build(BuildContext context) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: const Color(0xFFEAF2FF),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Icon(icon, color: AppTheme.primary, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: AppTheme.muted,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    color: AppTheme.ink,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(address),
+              ],
+            ),
+          ),
+        ],
+      );
 }
 
 class _Metric extends StatelessWidget {

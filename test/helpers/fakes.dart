@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:langkah_sahabat/data/models/assistant_response.dart';
 import 'package:langkah_sahabat/data/models/destination.dart';
 import 'package:langkah_sahabat/data/models/geo_point.dart';
@@ -197,6 +199,24 @@ class FakeTextToSpeechService extends TextToSpeechService {
 
   @override
   Future<void> stop() async {}
+}
+
+class BlockingTextToSpeechService extends TextToSpeechService {
+  final Completer<void> _completion = Completer<void>();
+  final List<String> spokenTexts = [];
+
+  @override
+  Future<void> speak(String text) {
+    spokenTexts.add(text);
+    return _completion.future;
+  }
+
+  @override
+  Future<void> stop() async => complete();
+
+  void complete() {
+    if (!_completion.isCompleted) _completion.complete();
+  }
 }
 
 class FakeHapticService extends HapticService {

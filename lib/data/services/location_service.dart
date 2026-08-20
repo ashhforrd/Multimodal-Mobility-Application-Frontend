@@ -33,6 +33,7 @@ class LocationService {
         point: GeoPoint(
           latitude: position.latitude,
           longitude: position.longitude,
+          courseDegrees: position.speed >= .5 ? position.heading : null,
         ),
       );
     } catch (_) {
@@ -53,6 +54,7 @@ class LocationService {
       (position) => GeoPoint(
         latitude: position.latitude,
         longitude: position.longitude,
+        courseDegrees: position.speed >= .5 ? position.heading : null,
       ),
     );
   }

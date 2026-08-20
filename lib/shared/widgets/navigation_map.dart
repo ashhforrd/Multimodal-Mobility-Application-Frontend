@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -17,6 +19,7 @@ class NavigationMap extends StatefulWidget {
     this.recoveryPoints = const [],
     this.height = 230,
     this.selectable = false,
+    this.followUser = false,
     this.onPointSelected,
   });
 
@@ -26,6 +29,7 @@ class NavigationMap extends StatefulWidget {
   final List<GeoPoint> recoveryPoints;
   final double height;
   final bool selectable;
+  final bool followUser;
   final ValueChanged<GeoPoint>? onPointSelected;
 
   bool get isRecovery => recoveryPoints.isNotEmpty;
@@ -37,10 +41,15 @@ class NavigationMap extends StatefulWidget {
 class _NavigationMapState extends State<NavigationMap>
     with SingleTickerProviderStateMixin {
   late final AnimationController _pulse;
+  late final MapController _mapController;
+  late bool _isFollowingUser;
+  bool _mapReady = false;
 
   @override
   void initState() {
     super.initState();
+    _mapController = MapController();
+    _isFollowingUser = widget.followUser;
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -48,8 +57,25 @@ class _NavigationMapState extends State<NavigationMap>
   }
 
   @override
+  void didUpdateWidget(covariant NavigationMap oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!widget.followUser || !_isFollowingUser) return;
+    final position = widget.currentPosition;
+    final previous = oldWidget.currentPosition;
+    if (position == null ||
+        (position == previous &&
+            position.courseDegrees == previous?.courseDegrees)) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _followPosition(position, previous: previous),
+    );
+  }
+
+  @override
   void dispose() {
     _pulse.dispose();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -85,6 +111,7 @@ class _NavigationMapState extends State<NavigationMap>
       child: Stack(
         children: [
           FlutterMap(
+            mapController: _mapController,
             key: ValueKey(
               '${widget.route?.id}-${widget.recoveryPoints.length}-'
               '${widget.recoveryPoints.isEmpty ? '' : widget.recoveryPoints.last.latitude}',
@@ -99,6 +126,13 @@ class _NavigationMapState extends State<NavigationMap>
                       maxZoom: 17,
                     )
                   : null,
+              onMapReady: () {
+                _mapReady = true;
+                if (widget.followUser && _isFollowingUser) {
+                  final position = widget.currentPosition;
+                  if (position != null) _followPosition(position);
+                }
+              },
               onTap: widget.selectable
                   ? (_, point) => widget.onPointSelected?.call(
                         GeoPoint(
@@ -110,7 +144,8 @@ class _NavigationMapState extends State<NavigationMap>
               interactionOptions: const InteractionOptions(
                 flags: InteractiveFlag.drag |
                     InteractiveFlag.pinchZoom |
-                    InteractiveFlag.doubleTapZoom,
+                    InteractiveFlag.doubleTapZoom |
+                    InteractiveFlag.rotate,
               ),
             ),
             children: [
@@ -175,6 +210,24 @@ class _NavigationMapState extends State<NavigationMap>
                       : LucideIcons.map,
             ),
           ),
+          if (widget.followUser)
+            Positioned(
+              top: 12,
+              right: 12,
+              child: IconButton.filledTonal(
+                key: const Key('follow-walking-direction'),
+                tooltip: _isFollowingUser
+                    ? 'Hentikan mengikuti arah'
+                    : 'Ikuti arah berjalan',
+                onPressed: _toggleFollowing,
+                icon: Icon(
+                  _isFollowingUser
+                      ? LucideIcons.navigation
+                      : LucideIcons.locateFixed,
+                  size: 19,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -189,6 +242,7 @@ class _NavigationMapState extends State<NavigationMap>
           point: _latLng(position),
           width: 48,
           height: 48,
+          rotate: true,
           child: AnimatedBuilder(
             animation: _pulse,
             builder: (_, child) => Transform.scale(
@@ -224,6 +278,7 @@ class _NavigationMapState extends State<NavigationMap>
           point: LatLng(destination.latitude, destination.longitude),
           width: 42,
           height: 42,
+          rotate: true,
           child: Container(
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
@@ -244,6 +299,7 @@ class _NavigationMapState extends State<NavigationMap>
           point: _latLng(widget.recoveryPoints.last),
           width: 42,
           height: 42,
+          rotate: true,
           child: Container(
             decoration: const BoxDecoration(
               shape: BoxShape.circle,
@@ -277,6 +333,42 @@ class _NavigationMapState extends State<NavigationMap>
   }
 
   LatLng _latLng(GeoPoint point) => LatLng(point.latitude, point.longitude);
+
+  void _toggleFollowing() {
+    setState(() => _isFollowingUser = !_isFollowingUser);
+    if (_isFollowingUser && widget.currentPosition != null) {
+      _followPosition(widget.currentPosition!);
+    }
+  }
+
+  void _followPosition(GeoPoint position, {GeoPoint? previous}) {
+    if (!_mapReady || !_isFollowingUser) return;
+    final course = position.courseDegrees ??
+        (previous == null ? null : _bearingBetween(previous, position));
+    final rotation =
+        course == null ? _mapController.camera.rotation : (360 - course) % 360;
+    _mapController.moveAndRotate(
+      _latLng(position),
+      math.max(_mapController.camera.zoom, 17),
+      rotation,
+      id: 'follow-walking-direction',
+    );
+  }
+
+  double? _bearingBetween(GeoPoint start, GeoPoint end) {
+    if (start.latitude == end.latitude && start.longitude == end.longitude) {
+      return null;
+    }
+    final startLatitude = start.latitude * math.pi / 180;
+    final endLatitude = end.latitude * math.pi / 180;
+    final deltaLongitude = (end.longitude - start.longitude) * math.pi / 180;
+    final y = math.sin(deltaLongitude) * math.cos(endLatitude);
+    final x = math.cos(startLatitude) * math.sin(endLatitude) -
+        math.sin(startLatitude) *
+            math.cos(endLatitude) *
+            math.cos(deltaLongitude);
+    return (math.atan2(y, x) * 180 / math.pi + 360) % 360;
+  }
 }
 
 class _MapBadge extends StatelessWidget {
