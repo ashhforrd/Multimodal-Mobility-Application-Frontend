@@ -83,22 +83,6 @@ abstract final class AppTheme {
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           ),
         ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            minimumSize: const Size.fromHeight(54),
-            foregroundColor: primary,
-            backgroundColor: const Color(0xFFEAF2FF),
-            side: BorderSide.none,
-            textStyle: const TextStyle(
-              fontFamily: 'Satoshi',
-              fontWeight: FontWeight.w700,
-              fontSize: 15,
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-          ),
-        ),
         pageTransitionsTheme: const PageTransitionsTheme(
           builders: {
             TargetPlatform.android: FadeForwardsPageTransitionsBuilder(),

@@ -9,7 +9,7 @@ Future<void> main() async {
   try {
     await dotenv.load();
   } catch (_) {
-    // Mode mock tetap berjalan saat .env belum dibuat.
+    // Nilai default service tetap digunakan saat .env belum tersedia.
   }
   runApp(const ProviderScope(child: LangkahSahabatApp()));
 }

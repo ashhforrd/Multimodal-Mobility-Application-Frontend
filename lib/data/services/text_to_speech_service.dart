@@ -1,14 +1,25 @@
 import 'package:flutter_tts/flutter_tts.dart';
 
 class TextToSpeechService {
-  final FlutterTts _tts = FlutterTts();
+  FlutterTts? _tts;
+
+  FlutterTts get _engine => _tts ??= FlutterTts();
+
   Future<void> speak(String text) async {
-    await _tts.setLanguage('id-ID');
-    await _tts.setSpeechRate(0.48);
-    await _tts.speak(text);
+    try {
+      await _engine.setLanguage('id-ID');
+      await _engine.setSpeechRate(0.48);
+      await _engine.speak(text);
+    } catch (_) {
+      // Instruksi visual tetap tersedia ketika perangkat tidak mendukung TTS.
+    }
   }
 
   Future<void> stop() async {
-    await _tts.stop();
+    try {
+      await _engine.stop();
+    } catch (_) {
+      // Tidak ada sesi audio yang perlu dihentikan.
+    }
   }
 }

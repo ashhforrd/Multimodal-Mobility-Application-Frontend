@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../application/navigation_controller.dart';
 
 class ActionPointAlert extends ConsumerWidget {
@@ -8,7 +9,7 @@ class ActionPointAlert extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final nav = ref.watch(navigationProvider);
     return AlertDialog(
-        icon: const Icon(Icons.vibration, size: 38),
+        icon: const Icon(LucideIcons.vibrate, size: 38),
         title: const Text('Mendekati titik aksi'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(nav.activeInstruction,
@@ -19,13 +20,14 @@ class ActionPointAlert extends ConsumerWidget {
               '${nav.distanceToNextActionPoint} m • ${nav.activeStep?.landmarkName}'),
           const SizedBox(height: 8),
           const Chip(
-              avatar: Icon(Icons.vibration, size: 16),
-              label: Text('Modalitas haptik aktif'))
+              avatar: Icon(LucideIcons.vibrate, size: 16),
+              label: Text('Getaran menandai tindakan penting'))
         ]),
         actions: [
-          TextButton(
-              onPressed: () =>
-                  ref.read(navigationProvider.notifier).speakActive(),
+          FilledButton.tonal(
+              onPressed: () => ref
+                  .read(navigationProvider.notifier)
+                  .speakActiveInstruction(),
               child: const Text('Ulangi instruksi')),
           FilledButton(
               onPressed: () {

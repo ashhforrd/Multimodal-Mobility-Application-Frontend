@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../application/navigation_controller.dart';
 
 class ManualFeedbackActions extends ConsumerWidget {
@@ -23,29 +23,34 @@ class ManualFeedbackActions extends ConsumerWidget {
                             .titleLarge
                             ?.copyWith(fontWeight: FontWeight.bold)),
                     const Spacer(),
-                    IconButton(onPressed: close, icon: const Icon(Icons.close))
+                    IconButton(
+                      tooltip: 'Tutup bantuan',
+                      onPressed: close,
+                      icon: const Icon(LucideIcons.x),
+                    )
                   ]),
-                  _Action(Icons.replay, 'Ulangi instruksi', () {
-                    ref.read(navigationProvider.notifier).speakActive();
+                  _Action(LucideIcons.rotateCcw, 'Ulangi instruksi', () {
+                    ref
+                        .read(navigationProvider.notifier)
+                        .speakActiveInstruction();
                     close();
                   }),
-                  _Action(Icons.skip_next, 'Instruksi berikutnya', () {
+                  _Action(LucideIcons.stepForward, 'Instruksi berikutnya', () {
                     final next = nav.nextStep?.instruction ??
                         'Anda sudah di langkah terakhir.';
                     ref.read(ttsProvider).speak(next);
                     close();
                   }),
-                  _Action(Icons.help_outline, 'Saya bingung', () {
+                  _Action(LucideIcons.circleHelp, 'Saya bingung', () {
                     final text =
                         'Cari ${nav.activeStep?.landmarkName}. ${nav.activeInstruction}';
                     ref.read(navigationProvider.notifier).useInstruction(text);
                     ref.read(ttsProvider).speak(text);
                     close();
                   }),
-                  _Action(Icons.route, 'Bantu kembali ke rute', () {
+                  _Action(LucideIcons.route, 'Bantu kembali ke rute', () {
                     close();
-                    ref.read(navigationProvider.notifier).offRoute();
-                    context.push('/recovery');
+                    ref.read(navigationProvider.notifier).markOffRoute();
                   })
                 ])));
   }
@@ -61,5 +66,5 @@ class _Action extends StatelessWidget {
       onTap: onTap,
       leading: CircleAvatar(child: Icon(icon)),
       title: Text(label),
-      trailing: const Icon(Icons.chevron_right));
+      trailing: const Icon(LucideIcons.chevronRight));
 }

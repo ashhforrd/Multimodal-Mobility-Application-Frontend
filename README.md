@@ -1,92 +1,100 @@
 # Langkah Sahabat
 
-Langkah Sahabat adalah prototipe frontend Flutter untuk Tugas Akhir mengenai navigasi berjalan kaki multimodal. Aplikasi bertindak sebagai pendamping yang menggabungkan modalitas visual, modalitas audio, dan modalitas haptik. Seluruh alur utama dapat didemonstrasikan tanpa backend, Google Maps API key, Gemini API key, atau perjalanan fisik.
+Flutter thesis prototype for real-time, multimodal pedestrian navigation. It combines OpenStreetMap, live GPS, walking directions, Indonesian voice guidance, and haptic action alerts.
 
-## Fitur
+## Current capabilities
 
-- Pencarian dan pemilihan lima tujuan mock
-- Pratinjau rute dengan estimasi, arah awal, dan landmark
-- Enam langkah instruksi berjalan kaki berbasis landmark
-- Peta OpenStreetMap interaktif dengan polyline rute dan atribusi sumber
-- Kontrol demo untuk langkah berikutnya, titik aksi, keluar rute, dan reset
-- Peringatan titik aksi dengan audio serta haptic feedback
-- Bantuan suara melalui speech-to-text dan fallback input teks
-- Respons asisten mock; Gemini bersifat opsional dan otomatis memiliki fallback
-- Text-to-speech bahasa Indonesia
-- Bantuan manual dan pemulihan rute dengan perhitungan ulang mock
-- State management Riverpod dan routing dengan go_router
-- Sistem desain biru, font Satoshi lokal, ikon Lucide, dan microanimation
+- Live place search through Nominatim
+- Real walking routes, geometry, distance, duration, and maneuvers from OSRM
+- Foreground GPS tracking and route-deviation detection
+- Automatic action-point alerts and spoken instructions
+- Live recovery route to rejoin the original route
+- Gemini assistance when a valid API key is configured
 
-## Prasyarat
+## Run
 
-- Flutter stable 3.22 atau lebih baru (Dart 3.4+)
-- Android Studio/Xcode beserta emulator atau perangkat fisik
-
-## Menjalankan aplikasi
-
-Repositori ini berisi source aplikasi. Bila folder platform belum ada, buat secara aman dari root repositori:
+Requirements: Flutter stable with Dart 3.4+, internet access, and Xcode for native iOS.
 
 ```sh
-flutter create . --platforms=android,ios
 cp .env.example .env
 flutter pub get
 flutter run
 ```
 
-`flutter create .` mempertahankan isi `lib/`, lalu menghasilkan runner Android/iOS yang sesuai dengan versi Flutter lokal. Untuk verifikasi:
-
-```sh
-flutter format lib test
-flutter analyze
-flutter test
-```
-
-Untuk fitur perangkat nyata, tambahkan deskripsi izin berikut setelah runner dibuat: `NSLocationWhenInUseUsageDescription` dan `NSSpeechRecognitionUsageDescription`/`NSMicrophoneUsageDescription` pada `ios/Runner/Info.plist`, serta `ACCESS_FINE_LOCATION`, `RECORD_AUDIO`, dan `INTERNET` pada `android/app/src/main/AndroidManifest.xml`.
-
-## Konfigurasi
-
-`.env.example`:
-
 ```env
 GEMINI_API_KEY=
-USE_MOCK_ASSISTANT=true
-USE_MOCK_LOCATION=true
+GEMINI_MODEL=gemini-3.5-flash
+ROUTING_BASE_URL=https://routing.openstreetmap.de/routed-foot
+GEOCODING_BASE_URL=https://nominatim.openstreetmap.org
+NOMINATIM_EMAIL=
 ```
 
-Mode mock direkomendasikan untuk presentasi. Jika ingin mencoba Gemini, isi API key dan ubah `USE_MOCK_ASSISTANT=false`. Kegagalan jaringan/API otomatis kembali ke respons mock. Jangan commit `.env` yang berisi rahasia.
+Set `NOMINATIM_EMAIL` when appropriate to identify higher-volume requests. The app reports unavailable services instead of silently substituting simulated location, route, or assistant data.
 
-Izin lokasi dan mikrofon perlu ditambahkan ke manifest platform yang dihasilkan bila integrasi perangkat nyata digunakan. Alur demo utama tidak bergantung pada lokasi nyata. Speech-to-text yang tidak tersedia otomatis dapat digantikan oleh input teks.
+## iPhone field test
 
-## Alur demo Tugas Akhir
+Install full Xcode and CocoaPods, connect and trust the iPhone, enable Developer Mode, and configure an Apple development team in `ios/Runner.xcworkspace`.
 
-1. Pilih tujuan di layar “Mau ke mana?”.
-2. Buka pratinjau dan tekan “Mulai navigasi”.
-3. Gunakan “Simulate Next Step” untuk memperbarui instruksi.
-4. Gunakan “Simulate Action Point” untuk menunjukkan modalitas haptik dan audio.
-5. Buka “Tanya arah”; gunakan mikrofon atau masukkan teks.
-6. Buka “Bantuan” untuk menunjukkan seluruh aksi manual.
-7. Gunakan “Simulate Off Route”, hitung ulang rute, lalu kembali ke navigasi.
+```sh
+flutter devices
+flutter run -d <iphone-device-id>
+```
 
-## Struktur
+Keep the app in the foreground while walking. The current implementation does not provide background or offline navigation.
+
+## Web test from a phone
+
+```sh
+flutter run -d web-server --web-hostname any --web-port 8080
+```
+
+Open `http://<mac-local-ip>:8080` from a phone on the same Wi-Fi. Browsers can require HTTPS for microphone and geolocation, so native iOS is the recommended field-test target.
+
+## Thesis demo controls
+
+Demo controls are hidden during field testing. Enable them explicitly with:
+
+```sh
+flutter run --dart-define=SHOW_DEMO_CONTROLS=true
+```
+
+## Architecture
 
 ```text
 lib/
-  core/                 konfigurasi, konstanta, dan tema
-  data/                 model, data mock, dan service perangkat/API
-  features/
-    navigation/         state, layar, dan widget navigasi
-    voice/              state dan panel interaksi suara
-    recovery/           state dan layar pemulihan rute
-  shared/widgets/       visual peta simulasi reusable
+  core/       design system and configuration
+  data/       models and services S01–S07
+  features/   destination, navigation, voice, alerts, and recovery modules
+  shared/     reusable OpenStreetMap component
 ```
 
-## User experience goals
+- S01 `LocationService`: GPS permission, initial position, and position stream
+- S02 `RouteService`: OSRM walking route and recovery route
+- S03 `MapService`: Nominatim search and route calculations
+- S04–S07: speech-to-text, text-to-speech, haptics, and Gemini
 
-Instruksi aktif dibuat dominan, landmark selalu mempertahankan konteks, label memakai bahasa sederhana, dan fungsi penting selalu memiliki alternatif manual. Panel bantuan tidak menghilangkan konteks navigasi di belakangnya.
+See [requirements traceability](docs/requirements_traceability.md) for the FR, module, component, service, and test mapping.
 
-## Keterbatasan
+## Dependencies and external services
 
-- Jalur, posisi, jarak, dan pergerakan adalah simulasi untuk demonstrasi.
-- Tile OpenStreetMap membutuhkan koneksi internet; data rute dan instruksi masih berupa simulasi.
-- Kualitas speech recognition dan text-to-speech bergantung pada dukungan perangkat.
-- Gemini adalah peningkatan opsional, bukan syarat fungsi aplikasi.
+No new Flutter package was added for real routing. The implementation reuses `http` and the existing `flutter_map`, `latlong2`, `geolocator`, `speech_to_text`, `flutter_tts`, Riverpod, and routing packages.
+
+Add OSRM and Nominatim as external services in the thesis report. Their public endpoints are suitable for prototype field tests, not production-scale traffic; both base URLs are configurable without an app update.
+
+## Verify
+
+```sh
+dart format lib test
+flutter analyze
+flutter test
+flutter build web
+flutter build ios --debug --no-codesign
+```
+
+## Safety and limitations
+
+- Always follow real-world signs, sidewalks, crossings, and local rules.
+- Public routing, geocoding, and map services have no application-specific SLA.
+- Guidance depends on GPS and OpenStreetMap data quality.
+- Navigation currently works only in the foreground and requires internet access.
+- Street or path names are used when dedicated landmark data is unavailable.
