@@ -18,19 +18,21 @@ class VoiceInteractionPanel extends ConsumerStatefulWidget {
 
 class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
   final _textController = TextEditingController();
+  late final VoiceController _voiceController;
 
   @override
   void initState() {
     super.initState();
+    _voiceController = ref.read(voiceProvider.notifier);
     Future.microtask(() async {
-      await ref.read(voiceProvider.notifier).clear();
-      await ref.read(voiceProvider.notifier).toggleListening();
+      await _voiceController.clear();
+      await _voiceController.toggleListening();
     });
   }
 
   @override
   void dispose() {
-    unawaited(ref.read(voiceProvider.notifier).cancelListening());
+    unawaited(_voiceController.cancelListening(updateState: false));
     _textController.dispose();
     super.dispose();
   }
@@ -38,11 +40,19 @@ class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
   @override
   Widget build(BuildContext context) {
     final voice = ref.watch(voiceProvider);
-    if (_textController.text != voice.transcript) {
-      _textController
-        ..text = voice.transcript
-        ..selection = TextSelection.collapsed(offset: voice.transcript.length);
-    }
+    final displayedQuestion =
+        voice.lastQuestion.isNotEmpty ? voice.lastQuestion : voice.transcript;
+    ref.listen(voiceProvider, (previous, next) {
+      if (next.isListening && previous?.transcript != next.transcript) {
+        _textController
+          ..text = next.transcript
+          ..selection = TextSelection.collapsed(offset: next.transcript.length);
+      }
+      if (previous?.appResponse != next.appResponse &&
+          next.appResponse.isNotEmpty) {
+        _textController.clear();
+      }
+    });
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -99,10 +109,10 @@ class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
               ]),
             ),
             const SizedBox(height: 16),
-            if (voice.transcript.isNotEmpty)
+            if (displayedQuestion.isNotEmpty)
               _ConversationBubble(
                 label: 'Pertanyaan Anda',
-                text: voice.transcript,
+                text: displayedQuestion,
                 alignment: Alignment.centerRight,
                 color: AppTheme.primary,
                 foregroundColor: Colors.white,
@@ -119,6 +129,7 @@ class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
             ],
             const SizedBox(height: 16),
             TextField(
+              key: const Key('voice-question-field'),
               controller: _textController,
               onChanged: ref.read(voiceProvider.notifier).setTranscript,
               minLines: 2,

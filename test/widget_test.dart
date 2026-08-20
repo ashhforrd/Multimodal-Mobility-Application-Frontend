@@ -3,8 +3,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:langkah_sahabat/app.dart';
 import 'package:langkah_sahabat/core/theme/app_theme.dart';
+import 'package:langkah_sahabat/data/models/assistant_response.dart';
 import 'package:langkah_sahabat/data/models/geo_point.dart';
 import 'package:langkah_sahabat/features/navigation/application/navigation_controller.dart';
+import 'package:langkah_sahabat/features/voice/application/voice_controller.dart';
+import 'package:langkah_sahabat/features/voice/presentation/voice_interaction_panel.dart';
 import 'package:langkah_sahabat/shared/widgets/navigation_map.dart';
 
 import 'helpers/fakes.dart';
@@ -122,6 +125,10 @@ void main() {
       find.text('Mau ke mana?', skipOffstage: false),
       findsOneWidget,
     );
+    expect(
+      find.text('Perpustakaan Pusat', skipOffstage: false),
+      findsWidgets,
+    );
     expect(find.text('Lihat pratinjau rute'), findsOneWidget);
 
     await tester.tap(find.text('Lihat pratinjau rute'));
@@ -144,6 +151,46 @@ void main() {
       findsOneWidget,
     );
     expect(find.byKey(const Key('destination-map-picker')), findsOneWidget);
+  });
+
+  testWidgets('field pertanyaan kosong setelah jawaban suara diterima',
+      (tester) async {
+    const response = AssistantResponse(text: 'Belok kiri setelah gerbang.');
+    final container = ProviderContainer(
+      overrides: [
+        locationServiceProvider.overrideWithValue(FakeLocationService()),
+        ttsProvider.overrideWithValue(FakeTextToSpeechService()),
+        hapticProvider.overrideWithValue(FakeHapticService()),
+        routeServiceProvider.overrideWithValue(FakeRouteService()),
+        voiceServiceProvider.overrideWithValue(FakeVoiceService()),
+        geminiServiceProvider.overrideWithValue(FakeGeminiService(response)),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container
+        .read(navigationProvider.notifier)
+        .selectDestination(testDestination);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(body: VoiceInteractionPanel()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    const question = 'Saya harus belok di mana?';
+    final field = find.byKey(const Key('voice-question-field'));
+    await tester.enterText(field, question);
+    await tester.tap(find.text('Kirim teks'));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+    expect(find.text(question), findsOneWidget);
+    expect(find.text(response.text), findsOneWidget);
   });
 }
 

@@ -177,6 +177,16 @@ class FakeMapService extends MapService {
     GeoPoint? nearby,
   }) async =>
       results;
+
+  @override
+  Future<Destination> reverseGeocode(GeoPoint point) async => Destination(
+        id: 'reverse-${results.first.id}',
+        name: results.first.name,
+        address: results.first.address,
+        latitude: point.latitude,
+        longitude: point.longitude,
+        description: results.first.description,
+      );
 }
 
 class FakeTextToSpeechService extends TextToSpeechService {

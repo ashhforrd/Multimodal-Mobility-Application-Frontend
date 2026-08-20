@@ -47,7 +47,13 @@ class VoiceController extends StateNotifier<VoiceState> {
           errorMessage: 'Pengenalan suara tidak tersedia. Gunakan input teks.');
       return;
     }
-    state = state.copyWith(isListening: true, errorMessage: null);
+    state = state.copyWith(
+      isListening: true,
+      transcript: '',
+      lastQuestion: '',
+      appResponse: '',
+      errorMessage: null,
+    );
     try {
       await _voiceService.listen(
         onText: (text) => state = state.copyWith(transcript: text),
@@ -85,7 +91,8 @@ class VoiceController extends StateNotifier<VoiceState> {
   Future<void> submit() async {
     if (_submitInProgress || state.isProcessing) return;
     final nav = _ref.read(navigationProvider);
-    if (state.transcript.trim().isEmpty || nav.activeStep == null) {
+    final question = state.transcript.trim();
+    if (question.isEmpty || nav.activeStep == null) {
       state =
           state.copyWith(errorMessage: 'Masukkan pertanyaan terlebih dahulu.');
       return;
@@ -98,12 +105,14 @@ class VoiceController extends StateNotifier<VoiceState> {
     state = state.copyWith(isProcessing: true, errorMessage: null);
     try {
       final result = await _geminiService.ask(
-          question: state.transcript,
+          question: question,
           active: nav.activeStep!,
           next: nav.nextStep,
           destination: nav.selectedDestination?.name ?? '',
           routeStatus: nav.routeStatus.name);
       state = state.copyWith(
+        transcript: '',
+        lastQuestion: question,
         isProcessing: false,
         appResponse: result.text,
         suggestedInstruction: result.shouldUpdateInstruction
@@ -138,8 +147,10 @@ class VoiceController extends StateNotifier<VoiceState> {
     }
   }
 
-  Future<void> cancelListening() async {
-    state = state.copyWith(isListening: false);
+  Future<void> cancelListening({bool updateState = true}) async {
+    if (updateState) {
+      state = state.copyWith(isListening: false);
+    }
     await _voiceService.cancel();
   }
 

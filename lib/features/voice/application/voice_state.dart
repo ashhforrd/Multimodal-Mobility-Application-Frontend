@@ -2,6 +2,7 @@ class VoiceState {
   const VoiceState(
       {this.isListening = false,
       this.transcript = '',
+      this.lastQuestion = '',
       this.appResponse = '',
       this.isProcessing = false,
       this.isSpeaking = false,
@@ -9,13 +10,14 @@ class VoiceState {
       this.shouldOpenRecovery = false,
       this.errorMessage});
   final bool isListening, isProcessing, isSpeaking;
-  final String transcript, appResponse;
+  final String transcript, lastQuestion, appResponse;
   final String? suggestedInstruction;
   final bool shouldOpenRecovery;
   final String? errorMessage;
   VoiceState copyWith(
           {bool? isListening,
           String? transcript,
+          String? lastQuestion,
           String? appResponse,
           bool? isProcessing,
           bool? isSpeaking,
@@ -25,6 +27,7 @@ class VoiceState {
       VoiceState(
           isListening: isListening ?? this.isListening,
           transcript: transcript ?? this.transcript,
+          lastQuestion: lastQuestion ?? this.lastQuestion,
           appResponse: appResponse ?? this.appResponse,
           isProcessing: isProcessing ?? this.isProcessing,
           isSpeaking: isSpeaking ?? this.isSpeaking,

@@ -9,6 +9,12 @@ class TextToSpeechService {
     try {
       await _engine.setLanguage('id-ID');
       await _engine.setSpeechRate(0.48);
+      await _engine.setIosAudioCategory(
+        IosTextToSpeechAudioCategory.playback,
+        [IosTextToSpeechAudioCategoryOptions.duckOthers],
+        IosTextToSpeechAudioMode.spokenAudio,
+      );
+      await _engine.awaitSpeakCompletion(true);
       await _engine.speak(text);
     } catch (_) {
       // Instruksi visual tetap tersedia ketika perangkat tidak mendukung TTS.

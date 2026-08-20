@@ -34,7 +34,8 @@ class MapService {
   final http.Client _client;
   final String _searchBaseUrl;
   final Map<String, List<Destination>> _searchCache = {};
-  DateTime? _lastSearchAt;
+  final Map<String, Destination> _reverseCache = {};
+  DateTime? _lastRequestAt;
 
   /// User-triggered destination search for module M01 through service S03.
   /// Requests are cached and limited to one per second for Nominatim policy.
@@ -56,13 +57,7 @@ class MapService {
     final cached = _searchCache[cacheKey];
     if (cached != null) return cached;
 
-    final previousRequest = _lastSearchAt;
-    if (previousRequest != null) {
-      final wait = const Duration(seconds: 1) -
-          DateTime.now().difference(previousRequest);
-      if (!wait.isNegative) await Future<void>.delayed(wait);
-    }
-    _lastSearchAt = DateTime.now();
+    await _waitForRequestSlot();
 
     final parameters = <String, String>{
       'q': normalized,
@@ -101,6 +96,55 @@ class MapService {
     } catch (_) {
       throw const MapServiceException(
         'Lokasi tidak dapat dicari. Periksa koneksi internet Anda.',
+      );
+    }
+  }
+
+  /// Resolves a user-selected map coordinate to the closest OSM place/address.
+  Future<Destination> reverseGeocode(GeoPoint point) async {
+    final cacheKey = '${point.latitude.toStringAsFixed(5)},'
+        '${point.longitude.toStringAsFixed(5)}';
+    final cached = _reverseCache[cacheKey];
+    if (cached != null) return cached;
+
+    await _waitForRequestSlot();
+    final parameters = <String, String>{
+      'lat': point.latitude.toString(),
+      'lon': point.longitude.toString(),
+      'format': 'jsonv2',
+      'addressdetails': '1',
+      'zoom': '18',
+      'accept-language': 'id',
+      if (_environmentValue('NOMINATIM_EMAIL')?.trim().isNotEmpty == true)
+        'email': _environmentValue('NOMINATIM_EMAIL')!.trim(),
+    };
+    final uri = Uri.parse('$_searchBaseUrl/reverse').replace(
+      queryParameters: parameters,
+    );
+
+    try {
+      final response = await _client
+          .get(uri, headers: _searchHeaders)
+          .timeout(const Duration(seconds: 20));
+      if (response.statusCode != 200) {
+        throw const MapServiceException(
+          'Nama lokasi tidak dapat ditemukan untuk titik ini.',
+        );
+      }
+      final data = jsonDecode(response.body) as Map<String, dynamic>;
+      if (data['error'] != null) {
+        throw const MapServiceException(
+          'Nama lokasi tidak tersedia untuk titik ini.',
+        );
+      }
+      final destination = _parseDestination(data);
+      _reverseCache[cacheKey] = destination;
+      return destination;
+    } on MapServiceException {
+      rethrow;
+    } catch (_) {
+      throw const MapServiceException(
+        'Nama lokasi tidak dapat dimuat. Periksa koneksi internet Anda.',
       );
     }
   }
@@ -154,6 +198,16 @@ class MapService {
           .fold(0, (total, step) => total + step.distanceMeters);
 
   double _radians(double degrees) => degrees * math.pi / 180;
+
+  Future<void> _waitForRequestSlot() async {
+    final previousRequest = _lastRequestAt;
+    if (previousRequest != null) {
+      final wait = const Duration(seconds: 1) -
+          DateTime.now().difference(previousRequest);
+      if (!wait.isNegative) await Future<void>.delayed(wait);
+    }
+    _lastRequestAt = DateTime.now();
+  }
 
   Destination _parseDestination(Map<String, dynamic> data) {
     final displayName = data['display_name'] as String? ?? 'Lokasi tanpa nama';

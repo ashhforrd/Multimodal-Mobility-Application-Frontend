@@ -4,7 +4,7 @@ Flutter thesis prototype for real-time, multimodal pedestrian navigation. It com
 
 ## Current capabilities
 
-- Live place search through Nominatim
+- Live place search and reverse geocoding through Nominatim
 - Real walking routes, geometry, distance, duration, and maneuvers from OSRM
 - Foreground GPS tracking and route-deviation detection
 - Automatic action-point alerts and spoken instructions

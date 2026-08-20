@@ -34,6 +34,11 @@ void main() {
     voice.applyResponse();
 
     expect(container.read(voiceProvider).appResponse, response.text);
+    expect(container.read(voiceProvider).transcript, isEmpty);
+    expect(
+      container.read(voiceProvider).lastQuestion,
+      'Saya bingung harus belok di mana?',
+    );
     expect(container.read(navigationProvider).activeInstruction, response.text);
     expect(tts.spokenTexts.last, response.text);
   });

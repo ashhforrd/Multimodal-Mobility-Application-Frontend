@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/destination.dart';
 import '../../../data/models/geo_point.dart';
+import '../../../data/services/map_service.dart';
 import '../../../shared/widgets/navigation_map.dart';
 import '../application/destination_search_controller.dart';
 import '../application/navigation_controller.dart';
@@ -22,6 +23,7 @@ class _SearchDestinationScreenState
     extends ConsumerState<SearchDestinationScreen> {
   String query = '';
   Destination? selected;
+  bool isResolvingMapDestination = false;
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +68,7 @@ class _SearchDestinationScreenState
                       child: _SelectedMapDestination(
                         destination: selected!,
                         currentPosition: navigation.currentPosition,
+                        isResolving: isResolvingMapDestination,
                         onChange: _openMapPicker,
                       ),
                     ),
@@ -269,10 +272,8 @@ class _SearchDestinationScreenState
                     height: double.infinity,
                     currentPosition: navigation.currentPosition,
                     selectable: true,
-                    onPointSelected: (point) {
-                      setState(() => selected = _mapDestination(point));
-                      Navigator.pop(sheetContext);
-                    },
+                    onPointSelected: (point) =>
+                        _selectMapPoint(point, sheetContext),
                   ),
                 ),
               ],
@@ -292,17 +293,52 @@ class _SearchDestinationScreenState
         longitude: point.longitude,
         description: 'Lokasi yang dipilih langsung melalui peta.',
       );
+
+  Future<void> _selectMapPoint(
+    GeoPoint point,
+    BuildContext sheetContext,
+  ) async {
+    final fallback = _mapDestination(point);
+    setState(() {
+      selected = fallback;
+      isResolvingMapDestination = true;
+    });
+    Navigator.pop(sheetContext);
+    try {
+      final result = await ref.read(mapServiceProvider).reverseGeocode(point);
+      if (!mounted || selected?.id != fallback.id) return;
+      setState(() {
+        selected = Destination(
+          id: 'map-${result.id}',
+          name: result.name,
+          address: result.address,
+          latitude: point.latitude,
+          longitude: point.longitude,
+          description: result.description,
+        );
+        isResolvingMapDestination = false;
+      });
+    } on MapServiceException catch (error) {
+      if (!mounted || selected?.id != fallback.id) return;
+      setState(() => isResolvingMapDestination = false);
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(error.message)));
+    }
+  }
 }
 
 class _SelectedMapDestination extends StatelessWidget {
   const _SelectedMapDestination({
     required this.destination,
     required this.currentPosition,
+    required this.isResolving,
     required this.onChange,
   });
 
   final Destination destination;
   final GeoPoint? currentPosition;
+  final bool isResolving;
   final VoidCallback onChange;
 
   @override
@@ -311,9 +347,13 @@ class _SelectedMapDestination extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Tujuan dipilih',
+            isResolving ? 'Mengenali lokasi…' : 'Tujuan dipilih',
             style: Theme.of(context).textTheme.titleMedium,
           ),
+          if (isResolving) ...[
+            const SizedBox(height: 8),
+            const LinearProgressIndicator(),
+          ],
           const SizedBox(height: 12),
           NavigationMap(
             key: const Key('selected-destination-map'),
