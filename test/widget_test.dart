@@ -233,16 +233,17 @@ void main() {
     tts.complete();
   });
 
-  testWidgets('field pertanyaan kosong setelah jawaban suara diterima',
+  testWidgets('panel bantuan suara berjalan hands-free tanpa tombol input',
       (tester) async {
     const response = AssistantResponse(text: 'Belok kiri setelah gerbang.');
+    final voiceService = FakeVoiceService();
     final container = ProviderContainer(
       overrides: [
         locationServiceProvider.overrideWithValue(FakeLocationService()),
         ttsProvider.overrideWithValue(FakeTextToSpeechService()),
         hapticProvider.overrideWithValue(FakeHapticService()),
         routeServiceProvider.overrideWithValue(FakeRouteService()),
-        voiceServiceProvider.overrideWithValue(FakeVoiceService()),
+        voiceServiceProvider.overrideWithValue(voiceService),
         geminiServiceProvider.overrideWithValue(FakeGeminiService(response)),
       ],
     );
@@ -263,12 +264,18 @@ void main() {
     await tester.pumpAndSettle();
 
     const question = 'Saya harus belok di mana?';
-    final field = find.byKey(const Key('voice-question-field'));
-    await tester.enterText(field, question);
-    await tester.tap(find.text('Kirim teks'));
+    expect(voiceService.listenCount, 1);
+    expect(find.text('Mulai mendengarkan'), findsNothing);
+    expect(find.text('Kirim teks'), findsNothing);
+    expect(find.byType(TextField), findsNothing);
+
+    voiceService.emitText(question);
+    voiceService.complete();
     await tester.pumpAndSettle();
 
-    expect(tester.widget<TextField>(field).controller!.text, isEmpty);
+    expect(voiceService.listenCount, 2);
+    expect(container.read(voiceProvider).isListening, isTrue);
+    expect(container.read(voiceProvider).transcript, isEmpty);
     expect(find.text(question), findsOneWidget);
     expect(find.text(response.text), findsOneWidget);
   });

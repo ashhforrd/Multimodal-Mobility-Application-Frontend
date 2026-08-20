@@ -34,61 +34,107 @@ class VoiceController extends StateNotifier<VoiceState> {
   final GeminiService _geminiService;
   final TextToSpeechService _textToSpeechService;
   bool _submitInProgress = false;
+  bool _continuousConversation = false;
+  bool _voiceReady = false;
+  int _listeningGeneration = 0;
+
+  Future<void> startContinuousConversation() async {
+    if (_continuousConversation) return;
+    _continuousConversation = true;
+    state = state.copyWith(
+      isConversationActive: true,
+      errorMessage: null,
+    );
+    await _textToSpeechService.stop();
+    await _startListening();
+  }
+
+  Future<void> stopContinuousConversation({bool updateState = true}) async {
+    _continuousConversation = false;
+    _listeningGeneration++;
+    if (updateState) {
+      state = state.copyWith(
+        isConversationActive: false,
+        isListening: false,
+        isSpeaking: false,
+      );
+    }
+    await Future.wait([
+      _voiceService.cancel(),
+      _textToSpeechService.stop(),
+    ]);
+  }
 
   Future<void> toggleListening() async {
     if (state.isListening) {
       await _stopAndSubmit();
       return;
     }
-    if (state.isProcessing) return;
-    final available = await _voiceService.initialize();
+    if (state.isProcessing || state.isSpeaking) return;
+    await _startListening(clearConversation: true);
+  }
+
+  Future<void> _startListening({bool clearConversation = false}) async {
+    if (state.isListening || state.isProcessing || state.isSpeaking) return;
+    final available = _voiceReady || await _voiceService.initialize();
     if (!available) {
       state = state.copyWith(
-          errorMessage: 'Pengenalan suara tidak tersedia. Gunakan input teks.');
+        isConversationActive: false,
+        errorMessage:
+            'Pengenalan suara tidak tersedia. Periksa izin mikrofon lalu buka kembali panel ini.',
+      );
+      _continuousConversation = false;
       return;
     }
+    _voiceReady = true;
+    final generation = ++_listeningGeneration;
     state = state.copyWith(
       isListening: true,
       transcript: '',
-      lastQuestion: '',
-      appResponse: '',
+      lastQuestion: clearConversation ? '' : state.lastQuestion,
+      appResponse: clearConversation ? '' : state.appResponse,
       errorMessage: null,
     );
     try {
       await _voiceService.listen(
-        onText: (text) => state = state.copyWith(transcript: text),
-        onCompleted: () => unawaited(_completeSpeech()),
+        onText: (text) {
+          if (generation != _listeningGeneration) return;
+          state = state.copyWith(transcript: text, errorMessage: null);
+        },
+        onCompleted: () => unawaited(_completeSpeech(generation)),
       );
     } catch (_) {
+      if (generation != _listeningGeneration) return;
       state = state.copyWith(
         isListening: false,
-        errorMessage:
-            'Mikrofon tidak dapat digunakan. Masukkan pertanyaan melalui teks.',
+        errorMessage: 'Mikrofon tidak dapat digunakan. Periksa izin mikrofon.',
       );
+      await _resumeContinuousConversation();
     }
   }
 
   void setTranscript(String text) => state = state.copyWith(transcript: text);
 
   Future<void> _stopAndSubmit() async {
+    _listeningGeneration++;
     state = state.copyWith(isListening: false);
     await _voiceService.stop();
     await submit();
   }
 
-  Future<void> _completeSpeech() async {
-    if (!state.isListening) return;
+  Future<void> _completeSpeech(int generation) async {
+    if (generation != _listeningGeneration || !state.isListening) return;
+    _listeningGeneration++;
     state = state.copyWith(isListening: false);
+    await _voiceService.stop();
     if (state.transcript.trim().isEmpty) {
-      state = state.copyWith(
-        errorMessage: 'Suara belum terdeteksi. Coba ucapkan pertanyaan lagi.',
-      );
+      await _resumeContinuousConversation();
       return;
     }
-    await submit();
+    await submit(fromContinuousConversation: true);
   }
 
-  Future<void> submit() async {
+  Future<void> submit({bool fromContinuousConversation = false}) async {
     if (_submitInProgress || state.isProcessing) return;
     final nav = _ref.read(navigationProvider);
     final question = state.transcript.trim();
@@ -98,6 +144,7 @@ class VoiceController extends StateNotifier<VoiceState> {
       return;
     }
     if (state.isListening) {
+      _listeningGeneration++;
       state = state.copyWith(isListening: false);
       await _voiceService.stop();
     }
@@ -120,9 +167,11 @@ class VoiceController extends StateNotifier<VoiceState> {
             : null,
         shouldOpenRecovery: result.shouldOpenRecovery,
       );
-      state = state.copyWith(isListening: false, isSpeaking: true);
-      await _textToSpeechService.speak(result.text);
-      state = state.copyWith(isSpeaking: false);
+      if (!fromContinuousConversation || _continuousConversation) {
+        state = state.copyWith(isListening: false, isSpeaking: true);
+        await _textToSpeechService.speak(result.text);
+        state = state.copyWith(isSpeaking: false);
+      }
     } on GeminiServiceException catch (error) {
       state = state.copyWith(
         isListening: false,
@@ -138,6 +187,16 @@ class VoiceController extends StateNotifier<VoiceState> {
     } finally {
       _submitInProgress = false;
     }
+    if (fromContinuousConversation) {
+      await _resumeContinuousConversation();
+    }
+  }
+
+  Future<void> _resumeContinuousConversation() async {
+    if (!_continuousConversation) return;
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    if (!_continuousConversation) return;
+    await _startListening();
   }
 
   void applyResponse() {
@@ -148,6 +207,7 @@ class VoiceController extends StateNotifier<VoiceState> {
   }
 
   Future<void> cancelListening({bool updateState = true}) async {
+    _listeningGeneration++;
     if (updateState) {
       state = state.copyWith(isListening: false);
     }
@@ -155,7 +215,9 @@ class VoiceController extends StateNotifier<VoiceState> {
   }
 
   Future<void> clear() async {
+    _continuousConversation = false;
     await cancelListening();
+    await _textToSpeechService.stop();
     state = const VoiceState();
   }
 }

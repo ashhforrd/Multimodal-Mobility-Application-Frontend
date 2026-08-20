@@ -131,4 +131,82 @@ void main() {
     expect(gemini.askCount, 1);
     expect(container.read(voiceProvider).appResponse, response.text);
   });
+
+  test('percakapan hands-free mendengarkan kembali setelah audio selesai',
+      () async {
+    const response = AssistantResponse(text: 'Lanjutkan hingga persimpangan.');
+    final voiceService = FakeVoiceService();
+    final tts = ConversationTextToSpeechService();
+    final container = ProviderContainer(
+      overrides: [
+        locationServiceProvider.overrideWithValue(FakeLocationService()),
+        ttsProvider.overrideWithValue(tts),
+        hapticProvider.overrideWithValue(FakeHapticService()),
+        routeServiceProvider.overrideWithValue(FakeRouteService()),
+        voiceServiceProvider.overrideWithValue(voiceService),
+        geminiServiceProvider.overrideWithValue(FakeGeminiService(response)),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container
+        .read(navigationProvider.notifier)
+        .selectDestination(testDestination);
+
+    final voice = container.read(voiceProvider.notifier);
+    await voice.startContinuousConversation();
+    expect(voiceService.listenCount, 1);
+    expect(container.read(voiceProvider).isListening, isTrue);
+
+    voiceService.emitText('Saya harus berjalan ke mana?');
+    voiceService.complete();
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(container.read(voiceProvider).isSpeaking, isTrue);
+    expect(container.read(voiceProvider).isListening, isFalse);
+    expect(tts.spokenTexts, [response.text]);
+
+    tts.finishSpeaking();
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+
+    expect(voiceService.listenCount, 2);
+    expect(container.read(voiceProvider).isListening, isTrue);
+    expect(container.read(voiceProvider).transcript, isEmpty);
+    await voice.stopContinuousConversation();
+    expect(voiceService.cancelCount, 1);
+    expect(container.read(voiceProvider).isConversationActive, isFalse);
+  });
+
+  test('sesi kosong otomatis kembali mendengarkan tanpa mengirim pertanyaan',
+      () async {
+    final voiceService = FakeVoiceService();
+    final gemini = FakeGeminiService(
+      const AssistantResponse(text: 'Jawaban tidak boleh dipakai.'),
+    );
+    final container = ProviderContainer(
+      overrides: [
+        locationServiceProvider.overrideWithValue(FakeLocationService()),
+        ttsProvider.overrideWithValue(FakeTextToSpeechService()),
+        hapticProvider.overrideWithValue(FakeHapticService()),
+        routeServiceProvider.overrideWithValue(FakeRouteService()),
+        voiceServiceProvider.overrideWithValue(voiceService),
+        geminiServiceProvider.overrideWithValue(gemini),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container
+        .read(navigationProvider.notifier)
+        .selectDestination(testDestination);
+
+    final voice = container.read(voiceProvider.notifier);
+    await voice.startContinuousConversation();
+    voiceService.complete();
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+
+    expect(gemini.askCount, 0);
+    expect(voiceService.listenCount, 2);
+    expect(container.read(voiceProvider).isListening, isTrue);
+    expect(container.read(voiceProvider).errorMessage, isNull);
+    await voice.stopContinuousConversation();
+  });
 }

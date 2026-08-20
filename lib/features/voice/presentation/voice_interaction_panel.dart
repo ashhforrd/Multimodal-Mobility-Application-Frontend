@@ -17,7 +17,6 @@ class VoiceInteractionPanel extends ConsumerStatefulWidget {
 }
 
 class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
-  final _textController = TextEditingController();
   late final VoiceController _voiceController;
 
   @override
@@ -26,14 +25,16 @@ class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
     _voiceController = ref.read(voiceProvider.notifier);
     Future.microtask(() async {
       await _voiceController.clear();
-      await _voiceController.toggleListening();
+      if (!mounted) return;
+      await _voiceController.startContinuousConversation();
     });
   }
 
   @override
   void dispose() {
-    unawaited(_voiceController.cancelListening(updateState: false));
-    _textController.dispose();
+    unawaited(
+      _voiceController.stopContinuousConversation(updateState: false),
+    );
     super.dispose();
   }
 
@@ -41,18 +42,7 @@ class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
   Widget build(BuildContext context) {
     final voice = ref.watch(voiceProvider);
     final displayedQuestion =
-        voice.lastQuestion.isNotEmpty ? voice.lastQuestion : voice.transcript;
-    ref.listen(voiceProvider, (previous, next) {
-      if (next.isListening && previous?.transcript != next.transcript) {
-        _textController
-          ..text = next.transcript
-          ..selection = TextSelection.collapsed(offset: next.transcript.length);
-      }
-      if (previous?.appResponse != next.appResponse &&
-          next.appResponse.isNotEmpty) {
-        _textController.clear();
-      }
-    });
+        voice.transcript.isNotEmpty ? voice.transcript : voice.lastQuestion;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -89,17 +79,25 @@ class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
               ),
               child: Row(children: [
                 Icon(
-                  voice.isListening ? LucideIcons.audioLines : LucideIcons.mic,
+                  voice.isSpeaking
+                      ? LucideIcons.volume2
+                      : voice.isListening
+                          ? LucideIcons.audioLines
+                          : LucideIcons.mic,
                   color: AppTheme.primary,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    voice.isListening
-                        ? 'Sedang mendengarkan. Pertanyaan dikirim otomatis setelah Anda selesai bicara.'
-                        : voice.isProcessing
-                            ? 'Pertanyaan sedang diproses…'
-                            : 'Mikrofon dijeda. Anda tetap dapat mengetik.',
+                    voice.isSpeaking
+                        ? 'Jawaban sedang dibacakan. Mikrofon akan aktif kembali setelah audio selesai.'
+                        : voice.isListening
+                            ? 'Sedang mendengarkan. Pertanyaan dikirim otomatis setelah Anda selesai bicara.'
+                            : voice.isProcessing
+                                ? 'Pertanyaan sedang diproses…'
+                                : voice.isConversationActive
+                                    ? 'Menyiapkan mikrofon…'
+                                    : 'Sesi bantuan suara tidak aktif.',
                     style: const TextStyle(
                       color: AppTheme.ink,
                       fontWeight: FontWeight.w600,
@@ -127,18 +125,6 @@ class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
                 foregroundColor: AppTheme.ink,
               ),
             ],
-            const SizedBox(height: 16),
-            TextField(
-              key: const Key('voice-question-field'),
-              controller: _textController,
-              onChanged: ref.read(voiceProvider.notifier).setTranscript,
-              minLines: 2,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                labelText: 'Pertanyaan Anda',
-                hintText: 'Contoh: Saya harus belok di mana?',
-              ),
-            ),
             if (voice.errorMessage != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
@@ -147,29 +133,6 @@ class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
                   style: TextStyle(color: Theme.of(context).colorScheme.error),
                 ),
               ),
-            const SizedBox(height: 10),
-            FilledButton.tonalIcon(
-              onPressed: voice.isProcessing
-                  ? null
-                  : () => ref.read(voiceProvider.notifier).toggleListening(),
-              icon: Icon(
-                voice.isListening ? LucideIcons.square : LucideIcons.mic,
-                size: 18,
-              ),
-              label: Text(
-                voice.isListening ? 'Selesai bicara' : 'Mulai mendengarkan',
-              ),
-            ),
-            const SizedBox(height: 8),
-            FilledButton.icon(
-              onPressed: voice.isProcessing
-                  ? null
-                  : () => ref.read(voiceProvider.notifier).submit(),
-              icon: const Icon(LucideIcons.send, size: 18),
-              label: Text(
-                voice.isProcessing ? 'Memproses…' : 'Kirim teks',
-              ),
-            ),
             if (voice.appResponse.isNotEmpty) ...[
               const SizedBox(height: 8),
               FilledButton.tonalIcon(

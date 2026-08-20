@@ -219,6 +219,25 @@ class BlockingTextToSpeechService extends TextToSpeechService {
   }
 }
 
+class ConversationTextToSpeechService extends TextToSpeechService {
+  final Completer<void> _completion = Completer<void>();
+  final List<String> spokenTexts = [];
+  int stopCount = 0;
+
+  @override
+  Future<void> speak(String text) {
+    spokenTexts.add(text);
+    return _completion.future;
+  }
+
+  @override
+  Future<void> stop() async => stopCount++;
+
+  void finishSpeaking() {
+    if (!_completion.isCompleted) _completion.complete();
+  }
+}
+
 class FakeHapticService extends HapticService {
   int actionPointCount = 0;
   int warningCount = 0;

@@ -31,7 +31,7 @@ NOMINATIM_EMAIL=
 
 Set `NOMINATIM_EMAIL` when appropriate to identify higher-volume requests. The app reports unavailable services instead of silently substituting simulated location, route, or assistant data.
 
-Create a restricted Gemini API key in [Google AI Studio](https://aistudio.google.com/app/apikey), then set `GEMINI_API_KEY` in the local `.env`. Voice questions are submitted automatically after a two-second pause; the text button remains as an accessibility fallback.
+Create a restricted Gemini API key in [Google AI Studio](https://aistudio.google.com/app/apikey), then set `GEMINI_API_KEY` in the local `.env`. While the voice panel is open, questions are submitted after a two-second pause and listening resumes automatically after each spoken answer.
 
 ## iPhone field test
 
