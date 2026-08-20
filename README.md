@@ -13,7 +13,7 @@ Flutter thesis prototype for real-time, multimodal pedestrian navigation. It com
 
 ## Run
 
-Requirements: Flutter stable with Dart 3.4+, internet access, and Xcode for native iOS.
+Requirements: Flutter stable with Dart 3.4+, internet access, Xcode for iOS, or the Android SDK and JDK 17 for Android.
 
 ```sh
 cp .env.example .env
@@ -33,7 +33,9 @@ Set `NOMINATIM_EMAIL` when appropriate to identify higher-volume requests. The a
 
 Create a restricted Gemini API key in [Google AI Studio](https://aistudio.google.com/app/apikey), then set `GEMINI_API_KEY` in the local `.env`. While the voice panel is open, questions are submitted after a two-second pause and listening resumes automatically after each spoken answer.
 
-## iPhone field test
+## Native field test
+
+### iPhone
 
 Install full Xcode and CocoaPods, connect and trust the iPhone, enable Developer Mode, and configure an Apple development team in `ios/Runner.xcworkspace`.
 
@@ -43,6 +45,17 @@ flutter run -d <iphone-device-id>
 ```
 
 Keep the app in the foreground while walking. The current implementation does not provide background or offline navigation.
+
+### Android
+
+Enable Developer options and USB debugging, connect and authorize the phone, then run:
+
+```sh
+flutter devices
+flutter run --release -d <android-device-id>
+```
+
+After installation, disconnect the cable and launch Langkah Sahabat from the Android home screen. The Android build includes location, microphone, internet, speech-recognition, and text-to-speech declarations.
 
 ## Web test from a phone
 
