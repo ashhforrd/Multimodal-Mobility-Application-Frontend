@@ -10,6 +10,7 @@ import 'package:langkah_sahabat/data/services/location_service.dart';
 import 'package:langkah_sahabat/data/services/map_service.dart';
 import 'package:langkah_sahabat/data/services/route_service.dart';
 import 'package:langkah_sahabat/data/services/text_to_speech_service.dart';
+import 'package:langkah_sahabat/data/services/voice_service.dart';
 
 const testDestination = Destination(
   id: 'library',
@@ -203,6 +204,8 @@ class FakeGeminiService extends GeminiService {
   FakeGeminiService(this.response);
 
   final AssistantResponse response;
+  int askCount = 0;
+  final List<String> questions = [];
 
   @override
   Future<AssistantResponse> ask({
@@ -211,6 +214,43 @@ class FakeGeminiService extends GeminiService {
     RouteStep? next,
     required String destination,
     required String routeStatus,
-  }) async =>
-      response;
+  }) async {
+    askCount++;
+    questions.add(question);
+    return response;
+  }
+}
+
+class FakeVoiceService extends VoiceService {
+  FakeVoiceService({this.available = true});
+
+  final bool available;
+  int listenCount = 0;
+  int stopCount = 0;
+  int cancelCount = 0;
+  void Function(String)? _onText;
+  void Function()? _onCompleted;
+
+  @override
+  Future<bool> initialize() async => available;
+
+  @override
+  Future<void> listen({
+    required void Function(String) onText,
+    required void Function() onCompleted,
+  }) async {
+    listenCount++;
+    _onText = onText;
+    _onCompleted = onCompleted;
+  }
+
+  @override
+  Future<void> stop() async => stopCount++;
+
+  @override
+  Future<void> cancel() async => cancelCount++;
+
+  void emitText(String text) => _onText?.call(text);
+
+  void complete() => _onCompleted?.call();
 }

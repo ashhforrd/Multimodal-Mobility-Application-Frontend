@@ -117,6 +117,14 @@ class NavigationController extends StateNotifier<NavigationState> {
         ),
       );
 
+  void clearDestinationSelection() {
+    _alertedSteps.clear();
+    state = NavigationState(
+      currentPosition: state.currentPosition,
+      locationMessage: state.locationMessage,
+    );
+  }
+
   Future<void> start() async {
     final route = state.currentRoute;
     if (route == null) return;

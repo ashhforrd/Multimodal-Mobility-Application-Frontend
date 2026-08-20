@@ -59,69 +59,82 @@ class _SearchDestinationScreenState
                     ),
                   ),
                 ),
-                SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  sliver: SliverToBoxAdapter(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            search.hasSearched
-                                ? 'Hasil pencarian'
-                                : 'Cari tujuan nyata',
-                            style: const TextStyle(
-                              fontSize: 17,
-                              letterSpacing: -.34,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          search.isSearching
-                              ? 'Mencari…'
-                              : '${items.length} lokasi',
-                          style: const TextStyle(color: AppTheme.muted),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                if (items.isEmpty)
-                  SliverFillRemaining(
-                    hasScrollBody: false,
-                    child: Center(
-                      child: search.isSearching
-                          ? const CircularProgressIndicator()
-                          : Padding(
-                              padding: const EdgeInsets.all(28),
-                              child: Text(
-                                search.errorMessage ??
-                                    (search.hasSearched
-                                        ? 'Tujuan tidak ditemukan.\nCoba kata kunci lain.'
-                                        : 'Masukkan nama tempat atau alamat, lalu tekan cari.'),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
+                if (_hasMapSelection)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+                    sliver: SliverToBoxAdapter(
+                      child: _SelectedMapDestination(
+                        destination: selected!,
+                        currentPosition: navigation.currentPosition,
+                        onChange: _openMapPicker,
+                      ),
                     ),
                   )
-                else
+                else ...[
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
-                    sliver: SliverList.separated(
-                      itemCount: items.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 10),
-                      itemBuilder: (_, index) {
-                        final destination = items[index];
-                        return _DestinationTile(
-                          destination: destination,
-                          selected: selected?.id == destination.id,
-                          onTap: () => setState(() => selected = destination),
-                        );
-                      },
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: SliverToBoxAdapter(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              search.hasSearched
+                                  ? 'Hasil pencarian'
+                                  : 'Cari tujuan nyata',
+                              style: const TextStyle(
+                                fontSize: 17,
+                                letterSpacing: -.34,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            search.isSearching
+                                ? 'Mencari…'
+                                : '${items.length} lokasi',
+                            style: const TextStyle(color: AppTheme.muted),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
+                  if (items.isEmpty)
+                    SliverFillRemaining(
+                      hasScrollBody: false,
+                      child: Center(
+                        child: search.isSearching
+                            ? const CircularProgressIndicator()
+                            : Padding(
+                                padding: const EdgeInsets.all(28),
+                                child: Text(
+                                  search.errorMessage ??
+                                      (search.hasSearched
+                                          ? 'Tujuan tidak ditemukan.\nCoba kata kunci lain.'
+                                          : 'Masukkan nama tempat atau alamat, lalu tekan cari.'),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                      ),
+                    )
+                  else
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
+                      sliver: SliverList.separated(
+                        itemCount: items.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 10),
+                        itemBuilder: (_, index) {
+                          final destination = items[index];
+                          return _DestinationTile(
+                            destination: destination,
+                            selected: selected?.id == destination.id,
+                            onTap: () => setState(() => selected = destination),
+                          );
+                        },
+                      ),
+                    ),
+                ],
               ],
             ),
           ),
@@ -153,7 +166,14 @@ class _SearchDestinationScreenState
                                     .selectDestination(selected!);
                                 if (!context.mounted) return;
                                 if (success) {
-                                  context.push('/preview');
+                                  final selectedFromMap = _hasMapSelection;
+                                  final shouldChange =
+                                      await context.push<bool>('/preview');
+                                  if (!mounted || shouldChange != true) return;
+                                  setState(() => selected = null);
+                                  if (selectedFromMap) {
+                                    await _openMapPicker();
+                                  }
                                 } else {
                                   final error = ref
                                       .read(navigationProvider)
@@ -183,6 +203,8 @@ class _SearchDestinationScreenState
       ),
     );
   }
+
+  bool get _hasMapSelection => selected?.id.startsWith('map-') ?? false;
 
   Future<void> _useCurrentLocation() async {
     await ref.read(navigationProvider.notifier).loadCurrentLocation();
@@ -224,32 +246,37 @@ class _SearchDestinationScreenState
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      builder: (sheetContext) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Pilih tujuan melalui peta',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Ketuk lokasi pada peta untuk menetapkannya sebagai tujuan.',
-              ),
-              const SizedBox(height: 16),
-              NavigationMap(
-                height: 360,
-                currentPosition: navigation.currentPosition,
-                selectable: true,
-                onPointSelected: (point) {
-                  setState(() => selected = _mapDestination(point));
-                  Navigator.pop(sheetContext);
-                },
-              ),
-            ],
+      builder: (sheetContext) => FractionallySizedBox(
+        heightFactor: .78,
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Pilih tujuan melalui peta',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Ketuk lokasi pada peta untuk menetapkannya sebagai tujuan.',
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: NavigationMap(
+                    key: const Key('destination-map-picker'),
+                    height: double.infinity,
+                    currentPosition: navigation.currentPosition,
+                    selectable: true,
+                    onPointSelected: (point) {
+                      setState(() => selected = _mapDestination(point));
+                      Navigator.pop(sheetContext);
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -264,6 +291,49 @@ class _SearchDestinationScreenState
         latitude: point.latitude,
         longitude: point.longitude,
         description: 'Lokasi yang dipilih langsung melalui peta.',
+      );
+}
+
+class _SelectedMapDestination extends StatelessWidget {
+  const _SelectedMapDestination({
+    required this.destination,
+    required this.currentPosition,
+    required this.onChange,
+  });
+
+  final Destination destination;
+  final GeoPoint? currentPosition;
+  final VoidCallback onChange;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        key: const Key('selected-map-destination'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Tujuan dipilih',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          NavigationMap(
+            key: const Key('selected-destination-map'),
+            currentPosition: currentPosition,
+            destination: destination,
+            height: 250,
+          ),
+          const SizedBox(height: 12),
+          _DestinationTile(
+            destination: destination,
+            selected: true,
+            onTap: onChange,
+          ),
+          const SizedBox(height: 10),
+          FilledButton.tonalIcon(
+            onPressed: onChange,
+            icon: const Icon(LucideIcons.mapPinPlus, size: 17),
+            label: const Text('Ubah titik tujuan'),
+          ),
+        ],
       );
 }
 

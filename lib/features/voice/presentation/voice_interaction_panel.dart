@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
@@ -21,17 +23,14 @@ class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
   void initState() {
     super.initState();
     Future.microtask(() async {
-      ref.read(voiceProvider.notifier).clear();
+      await ref.read(voiceProvider.notifier).clear();
       await ref.read(voiceProvider.notifier).toggleListening();
     });
   }
 
   @override
   void dispose() {
-    final voice = ref.read(voiceProvider);
-    if (voice.isListening) {
-      ref.read(voiceProvider.notifier).toggleListening();
-    }
+    unawaited(ref.read(voiceProvider.notifier).cancelListening());
     _textController.dispose();
     super.dispose();
   }
@@ -39,7 +38,7 @@ class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
   @override
   Widget build(BuildContext context) {
     final voice = ref.watch(voiceProvider);
-    if (_textController.text != voice.transcript && voice.isListening) {
+    if (_textController.text != voice.transcript) {
       _textController
         ..text = voice.transcript
         ..selection = TextSelection.collapsed(offset: voice.transcript.length);
@@ -87,8 +86,10 @@ class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
                 Expanded(
                   child: Text(
                     voice.isListening
-                        ? 'Aplikasi sedang mendengarkan…'
-                        : 'Mikrofon dijeda. Anda tetap dapat mengetik.',
+                        ? 'Sedang mendengarkan. Pertanyaan dikirim otomatis setelah Anda selesai bicara.'
+                        : voice.isProcessing
+                            ? 'Pertanyaan sedang diproses…'
+                            : 'Mikrofon dijeda. Anda tetap dapat mengetik.',
                     style: const TextStyle(
                       color: AppTheme.ink,
                       fontWeight: FontWeight.w600,
@@ -137,16 +138,15 @@ class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
               ),
             const SizedBox(height: 10),
             FilledButton.tonalIcon(
-              onPressed: () =>
-                  ref.read(voiceProvider.notifier).toggleListening(),
+              onPressed: voice.isProcessing
+                  ? null
+                  : () => ref.read(voiceProvider.notifier).toggleListening(),
               icon: Icon(
                 voice.isListening ? LucideIcons.square : LucideIcons.mic,
                 size: 18,
               ),
               label: Text(
-                voice.isListening
-                    ? 'Berhenti mendengarkan'
-                    : 'Mulai mendengarkan',
+                voice.isListening ? 'Selesai bicara' : 'Mulai mendengarkan',
               ),
             ),
             const SizedBox(height: 8),
@@ -156,7 +156,7 @@ class _VoiceInteractionPanelState extends ConsumerState<VoiceInteractionPanel> {
                   : () => ref.read(voiceProvider.notifier).submit(),
               icon: const Icon(LucideIcons.send, size: 18),
               label: Text(
-                voice.isProcessing ? 'Memproses…' : 'Kirim pertanyaan',
+                voice.isProcessing ? 'Memproses…' : 'Kirim teks',
               ),
             ),
             if (voice.appResponse.isNotEmpty) ...[

@@ -63,4 +63,67 @@ void main() {
 
     expect(container.read(voiceProvider).shouldOpenRecovery, isTrue);
   });
+
+  test('pertanyaan suara otomatis dikirim satu kali setelah selesai bicara',
+      () async {
+    const response = AssistantResponse(text: 'Lanjutkan berjalan lurus.');
+    final voiceService = FakeVoiceService();
+    final gemini = FakeGeminiService(response);
+    final container = ProviderContainer(
+      overrides: [
+        locationServiceProvider.overrideWithValue(FakeLocationService()),
+        ttsProvider.overrideWithValue(FakeTextToSpeechService()),
+        hapticProvider.overrideWithValue(FakeHapticService()),
+        routeServiceProvider.overrideWithValue(FakeRouteService()),
+        voiceServiceProvider.overrideWithValue(voiceService),
+        geminiServiceProvider.overrideWithValue(gemini),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container
+        .read(navigationProvider.notifier)
+        .selectDestination(testDestination);
+
+    await container.read(voiceProvider.notifier).toggleListening();
+    voiceService.emitText('Saya harus berjalan ke mana?');
+    voiceService
+      ..complete()
+      ..complete();
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(gemini.askCount, 1);
+    expect(gemini.questions.single, 'Saya harus berjalan ke mana?');
+    expect(container.read(voiceProvider).appResponse, response.text);
+  });
+
+  test('tombol selesai bicara menghentikan mikrofon dan mengirim pertanyaan',
+      () async {
+    const response = AssistantResponse(text: 'Belok kanan di persimpangan.');
+    final voiceService = FakeVoiceService();
+    final gemini = FakeGeminiService(response);
+    final container = ProviderContainer(
+      overrides: [
+        locationServiceProvider.overrideWithValue(FakeLocationService()),
+        ttsProvider.overrideWithValue(FakeTextToSpeechService()),
+        hapticProvider.overrideWithValue(FakeHapticService()),
+        routeServiceProvider.overrideWithValue(FakeRouteService()),
+        voiceServiceProvider.overrideWithValue(voiceService),
+        geminiServiceProvider.overrideWithValue(gemini),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container
+        .read(navigationProvider.notifier)
+        .selectDestination(testDestination);
+
+    final voice = container.read(voiceProvider.notifier);
+    await voice.toggleListening();
+    voiceService.emitText('Di mana saya harus belok?');
+    await voice.toggleListening();
+
+    expect(voiceService.stopCount, 1);
+    expect(gemini.askCount, 1);
+    expect(container.read(voiceProvider).appResponse, response.text);
+  });
 }

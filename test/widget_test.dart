@@ -3,7 +3,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:langkah_sahabat/app.dart';
 import 'package:langkah_sahabat/core/theme/app_theme.dart';
+import 'package:langkah_sahabat/data/models/geo_point.dart';
 import 'package:langkah_sahabat/features/navigation/application/navigation_controller.dart';
+import 'package:langkah_sahabat/shared/widgets/navigation_map.dart';
 
 import 'helpers/fakes.dart';
 
@@ -88,6 +90,60 @@ void main() {
     );
     final decoration = action.decoration! as BoxDecoration;
     expect(decoration.color, AppTheme.success);
+  });
+
+  testWidgets(
+      'pilihan peta tampil di beranda dan ubah tujuan membuka peta kembali',
+      (tester) async {
+    await tester.pumpWidget(_testApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Pilih melalui peta'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final picker = find.byKey(const Key('destination-map-picker'));
+    expect(picker, findsOneWidget);
+    final map = tester.widget<NavigationMap>(picker);
+    map.onPointSelected!(
+      const GeoPoint(latitude: -6.8912, longitude: 107.6103),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(
+      find.byKey(
+        const Key('selected-map-destination'),
+        skipOffstage: false,
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Mau ke mana?', skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(find.text('Lihat pratinjau rute'), findsOneWidget);
+
+    await tester.tap(find.text('Lihat pratinjau rute'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('Pratinjau rute'), findsOneWidget);
+
+    final changeDestination = find.text(
+      'Ubah tujuan',
+      skipOffstage: false,
+    );
+    await tester.ensureVisible(changeDestination);
+    await tester.pump();
+    await tester.tap(changeDestination);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(
+      find.text('Mau ke mana?', skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('destination-map-picker')), findsOneWidget);
   });
 }
 

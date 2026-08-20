@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../data/services/gemini_service.dart';
 import '../../../data/services/text_to_speech_service.dart';
@@ -31,13 +33,14 @@ class VoiceController extends StateNotifier<VoiceState> {
   final VoiceService _voiceService;
   final GeminiService _geminiService;
   final TextToSpeechService _textToSpeechService;
+  bool _submitInProgress = false;
 
   Future<void> toggleListening() async {
     if (state.isListening) {
-      await _voiceService.stop();
-      state = state.copyWith(isListening: false);
+      await _stopAndSubmit();
       return;
     }
+    if (state.isProcessing) return;
     final available = await _voiceService.initialize();
     if (!available) {
       state = state.copyWith(
@@ -46,8 +49,10 @@ class VoiceController extends StateNotifier<VoiceState> {
     }
     state = state.copyWith(isListening: true, errorMessage: null);
     try {
-      await _voiceService
-          .listen((text) => state = state.copyWith(transcript: text));
+      await _voiceService.listen(
+        onText: (text) => state = state.copyWith(transcript: text),
+        onCompleted: () => unawaited(_completeSpeech()),
+      );
     } catch (_) {
       state = state.copyWith(
         isListening: false,
@@ -58,7 +63,27 @@ class VoiceController extends StateNotifier<VoiceState> {
   }
 
   void setTranscript(String text) => state = state.copyWith(transcript: text);
+
+  Future<void> _stopAndSubmit() async {
+    state = state.copyWith(isListening: false);
+    await _voiceService.stop();
+    await submit();
+  }
+
+  Future<void> _completeSpeech() async {
+    if (!state.isListening) return;
+    state = state.copyWith(isListening: false);
+    if (state.transcript.trim().isEmpty) {
+      state = state.copyWith(
+        errorMessage: 'Suara belum terdeteksi. Coba ucapkan pertanyaan lagi.',
+      );
+      return;
+    }
+    await submit();
+  }
+
   Future<void> submit() async {
+    if (_submitInProgress || state.isProcessing) return;
     final nav = _ref.read(navigationProvider);
     if (state.transcript.trim().isEmpty || nav.activeStep == null) {
       state =
@@ -66,8 +91,10 @@ class VoiceController extends StateNotifier<VoiceState> {
       return;
     }
     if (state.isListening) {
+      state = state.copyWith(isListening: false);
       await _voiceService.stop();
     }
+    _submitInProgress = true;
     state = state.copyWith(isProcessing: true, errorMessage: null);
     try {
       final result = await _geminiService.ask(
@@ -93,6 +120,14 @@ class VoiceController extends StateNotifier<VoiceState> {
         isProcessing: false,
         errorMessage: error.message,
       );
+    } catch (_) {
+      state = state.copyWith(
+        isListening: false,
+        isProcessing: false,
+        errorMessage: 'Pertanyaan tidak dapat diproses. Coba kembali.',
+      );
+    } finally {
+      _submitInProgress = false;
     }
   }
 
@@ -103,5 +138,13 @@ class VoiceController extends StateNotifier<VoiceState> {
     }
   }
 
-  void clear() => state = const VoiceState();
+  Future<void> cancelListening() async {
+    state = state.copyWith(isListening: false);
+    await _voiceService.cancel();
+  }
+
+  Future<void> clear() async {
+    await cancelListening();
+    state = const VoiceState();
+  }
 }

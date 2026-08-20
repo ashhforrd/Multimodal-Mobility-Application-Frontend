@@ -16,9 +16,26 @@ class RoutePreviewScreen extends ConsumerWidget {
     final route = navigation.currentRoute;
     if (route == null) {
       return Scaffold(
-        appBar: AppBar(),
-        body: const Center(
-          child: Text('Rute belum tersedia. Pilih tujuan terlebih dahulu.'),
+        appBar: AppBar(title: const Text('Pratinjau rute')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Rute belum tersedia. Pilih tujuan terlebih dahulu.',
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                FilledButton.tonalIcon(
+                  onPressed: () => context.go('/'),
+                  icon: const Icon(LucideIcons.house, size: 18),
+                  label: const Text('Kembali ke beranda'),
+                ),
+              ],
+            ),
+          ),
         ),
       );
     }
@@ -173,7 +190,16 @@ class RoutePreviewScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 20),
             FilledButton.tonalIcon(
-              onPressed: () => context.go('/'),
+              onPressed: () {
+                ref
+                    .read(navigationProvider.notifier)
+                    .clearDestinationSelection();
+                if (context.canPop()) {
+                  context.pop(true);
+                } else {
+                  context.go('/');
+                }
+              },
               icon: const Icon(LucideIcons.mapPin, size: 18),
               label: const Text('Ubah tujuan'),
             ),
