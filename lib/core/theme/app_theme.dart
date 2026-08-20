@@ -5,6 +5,7 @@ abstract final class AppTheme {
   static const primary = Color(0xFF1769E0);
   static const deepBlue = Color(0xFF0B3B8F);
   static const accent = Color(0xFF5BA8FF);
+  static const success = Color(0xFF15803D);
   static const ink = Color(0xFF10233F);
   static const muted = Color(0xFF64748B);
   static const canvas = Color(0xFFF4F7FB);

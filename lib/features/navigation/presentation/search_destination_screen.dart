@@ -52,6 +52,8 @@ class _SearchDestinationScreenState
                       onSearch: _search,
                       isSearching: search.isSearching,
                       isLoadingLocation: navigation.isLoadingLocation,
+                      isUsingCurrentLocation:
+                          navigation.currentPosition != null,
                       onUseCurrentLocation: _useCurrentLocation,
                       onSelectFromMap: _openMapPicker,
                     ),
@@ -272,6 +274,7 @@ class _Header extends StatelessWidget {
     required this.onUseCurrentLocation,
     required this.onSelectFromMap,
     required this.isLoadingLocation,
+    required this.isUsingCurrentLocation,
   });
 
   final ValueChanged<String> queryChanged;
@@ -279,6 +282,7 @@ class _Header extends StatelessWidget {
   final VoidCallback onUseCurrentLocation;
   final VoidCallback onSelectFromMap;
   final bool isLoadingLocation;
+  final bool isUsingCurrentLocation;
   final bool isSearching;
 
   @override
@@ -389,11 +393,17 @@ class _Header extends StatelessWidget {
             Row(children: [
               Expanded(
                 child: _HeaderAction(
-                  icon: LucideIcons.locateFixed,
+                  actionKey: const Key('current-location-action'),
+                  icon: isUsingCurrentLocation
+                      ? LucideIcons.circleCheck
+                      : LucideIcons.locateFixed,
                   label: isLoadingLocation
                       ? 'Mencari lokasi…'
-                      : 'Gunakan lokasi saat ini',
+                      : isUsingCurrentLocation
+                          ? 'Lokasi saat ini digunakan'
+                          : 'Gunakan lokasi saat ini',
                   onTap: isLoadingLocation ? null : onUseCurrentLocation,
+                  isSuccess: isUsingCurrentLocation && !isLoadingLocation,
                 ),
               ),
               const SizedBox(width: 8),
@@ -415,35 +425,67 @@ class _HeaderAction extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.actionKey,
+    this.isSuccess = false,
   });
 
+  final Key? actionKey;
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
+  final bool isSuccess;
 
   @override
-  Widget build(BuildContext context) => Material(
-        color: Colors.white.withValues(alpha: .14),
-        borderRadius: BorderRadius.circular(14),
-        child: InkWell(
-          onTap: onTap,
+  Widget build(BuildContext context) => AnimatedContainer(
+        key: actionKey,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          color: isSuccess
+              ? AppTheme.success
+              : Colors.white.withValues(alpha: .14),
           borderRadius: BorderRadius.circular(14),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 11),
-            child: Row(children: [
-              Icon(icon, color: Colors.white, size: 17),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(
+          boxShadow: isSuccess
+              ? const [
+                  BoxShadow(
+                    color: Color(0x3315803D),
+                    blurRadius: 12,
+                    offset: Offset(0, 5),
+                  ),
+                ]
+              : null,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 11),
+              child: Row(children: [
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 180),
+                  child: Icon(
+                    icon,
+                    key: ValueKey(icon),
                     color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
+                    size: 17,
                   ),
                 ),
-              ),
-            ]),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ]),
+            ),
           ),
         ),
       );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:langkah_sahabat/app.dart';
+import 'package:langkah_sahabat/core/theme/app_theme.dart';
 import 'package:langkah_sahabat/features/navigation/application/navigation_controller.dart';
 
 import 'helpers/fakes.dart';
@@ -41,6 +42,22 @@ void main() {
 
     expect(find.text('Mau ke mana?'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('lokasi aktif ditandai dengan tombol sukses berwarna hijau',
+      (tester) async {
+    await tester.pumpWidget(_testApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Gunakan lokasi saat ini'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Lokasi saat ini digunakan'), findsOneWidget);
+    final action = tester.widget<AnimatedContainer>(
+      find.byKey(const Key('current-location-action')),
+    );
+    final decoration = action.decoration! as BoxDecoration;
+    expect(decoration.color, AppTheme.success);
   });
 }
 
