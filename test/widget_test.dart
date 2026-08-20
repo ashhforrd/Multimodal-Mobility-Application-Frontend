@@ -9,6 +9,8 @@ import 'package:langkah_sahabat/data/services/text_to_speech_service.dart';
 import 'package:langkah_sahabat/features/navigation/application/navigation_controller.dart';
 import 'package:langkah_sahabat/features/navigation/presentation/active_navigation_screen.dart';
 import 'package:langkah_sahabat/features/navigation/presentation/route_preview_screen.dart';
+import 'package:langkah_sahabat/features/navigation/widgets/manual_feedback_actions.dart';
+import 'package:langkah_sahabat/features/recovery/presentation/route_recovery_view.dart';
 import 'package:langkah_sahabat/features/voice/application/voice_controller.dart';
 import 'package:langkah_sahabat/features/voice/presentation/voice_interaction_panel.dart';
 import 'package:langkah_sahabat/shared/widgets/navigation_map.dart';
@@ -279,6 +281,167 @@ void main() {
     expect(find.text(question), findsOneWidget);
     expect(find.text(response.text), findsOneWidget);
   });
+
+  testWidgets('aksi bantuan manual berfungsi dan item tampil tanpa ikon',
+      (tester) async {
+    final tts = FakeTextToSpeechService();
+    final container = ProviderContainer(
+      overrides: [
+        locationServiceProvider.overrideWithValue(FakeLocationService()),
+        ttsProvider.overrideWithValue(tts),
+        hapticProvider.overrideWithValue(FakeHapticService()),
+        routeServiceProvider.overrideWithValue(FakeRouteService()),
+      ],
+    );
+    addTearDown(container.dispose);
+    final navigation = container.read(navigationProvider.notifier);
+    await navigation.selectDestination(testDestination);
+    await navigation.start();
+    var recoveryRequests = 0;
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: _ManualFeedbackHost(
+            onRecoveryRequested: () async => recoveryRequests++,
+          ),
+        ),
+      ),
+    );
+
+    Future<void> openPanel() async {
+      await tester.tap(find.text('Buka panel pengujian'));
+      await tester.pumpAndSettle();
+    }
+
+    await openPanel();
+    expect(find.byType(CircleAvatar), findsNothing);
+    expect(find.byType(Icon), findsOneWidget);
+    final headerLeft = tester.getTopLeft(find.text('Bantuan')).dx;
+    for (final label in [
+      'Ulangi instruksi',
+      'Dengarkan instruksi berikutnya',
+      'Saya bingung',
+      'Pulihkan rute',
+    ]) {
+      expect(tester.getTopLeft(find.text(label)).dx, closeTo(headerLeft, .1));
+    }
+
+    tts.spokenTexts.clear();
+    await tester.tap(find.text('Ulangi instruksi'));
+    await tester.pumpAndSettle();
+    expect(tts.spokenTexts.single, navigation.state.activeInstruction);
+
+    await openPanel();
+    tts.spokenTexts.clear();
+    await tester.tap(find.text('Dengarkan instruksi berikutnya'));
+    await tester.pumpAndSettle();
+    expect(tts.spokenTexts.single, navigation.state.nextStep!.instruction);
+
+    await openPanel();
+    tts.spokenTexts.clear();
+    await tester.tap(find.text('Saya bingung'));
+    await tester.pumpAndSettle();
+    expect(tts.spokenTexts.single, startsWith('Cari'));
+    expect(navigation.state.activeInstruction, startsWith('Cari'));
+
+    await openPanel();
+    await tester.tap(find.text('Pulihkan rute'));
+    await tester.pumpAndSettle();
+    expect(recoveryRequests, 1);
+  });
+
+  testWidgets('pulihkan rute membuka kalkulasi dari bantuan manual',
+      (tester) async {
+    final routeService = FakeRouteService();
+    final container = ProviderContainer(
+      overrides: [
+        locationServiceProvider.overrideWithValue(FakeLocationService()),
+        ttsProvider.overrideWithValue(FakeTextToSpeechService()),
+        hapticProvider.overrideWithValue(FakeHapticService()),
+        routeServiceProvider.overrideWithValue(routeService),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container
+        .read(navigationProvider.notifier)
+        .selectDestination(testDestination);
+    await container.read(navigationProvider.notifier).start();
+    final router = GoRouter(
+      initialLocation: '/navigation',
+      routes: [
+        GoRoute(
+          path: '/navigation',
+          builder: (_, __) => const ActiveNavigationScreen(),
+        ),
+        GoRoute(
+          path: '/recovery',
+          builder: (_, __) => const RouteRecoveryView(),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp.router(
+          theme: AppTheme.light,
+          routerConfig: router,
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    final openHelp = find.text('Buka bantuan');
+    await tester.scrollUntilVisible(
+      openHelp,
+      300,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView),
+            matching: find.byType(Scrollable),
+          )
+          .last,
+    );
+    await tester.tap(openHelp);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.tap(find.text('Pulihkan rute'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Pemulihan rute'), findsOneWidget);
+    expect(routeService.recoveryOrigins, isNotEmpty);
+    expect(
+      find.byKey(const Key('recovery-navigation-map')),
+      findsOneWidget,
+    );
+  });
+}
+
+class _ManualFeedbackHost extends StatelessWidget {
+  const _ManualFeedbackHost({required this.onRecoveryRequested});
+
+  final Future<void> Function() onRecoveryRequested;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        body: Center(
+          child: FilledButton(
+            onPressed: () => showModalBottomSheet<void>(
+              context: context,
+              builder: (_) => ManualFeedbackActions(
+                onRecoveryRequested: onRecoveryRequested,
+              ),
+            ),
+            child: const Text('Buka panel pengujian'),
+          ),
+        ),
+      );
 }
 
 Widget _testApp({TextToSpeechService? tts}) => ProviderScope(

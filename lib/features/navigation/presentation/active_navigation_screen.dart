@@ -132,7 +132,7 @@ class _ActiveNavigationScreenState
               const SizedBox(width: 10),
               Expanded(
                 child: FilledButton.tonalIcon(
-                  onPressed: () => _openSheet(const ManualFeedbackActions()),
+                  onPressed: _openManualFeedback,
                   icon: const Icon(LucideIcons.lifeBuoy, size: 19),
                   label: const Text('Buka bantuan'),
                 ),
@@ -190,8 +190,21 @@ class _ActiveNavigationScreenState
 
   Future<void> _openRecovery() async {
     _openingRecovery = true;
-    await context.push('/recovery');
-    _openingRecovery = false;
+    try {
+      await context.push('/recovery');
+    } finally {
+      _openingRecovery = false;
+    }
+  }
+
+  Future<void> _openManualFeedback() => _openSheet(
+        ManualFeedbackActions(onRecoveryRequested: _requestRecovery),
+      );
+
+  Future<void> _requestRecovery() async {
+    await ref.read(navigationProvider.notifier).markOffRoute();
+    if (!mounted || _openingRecovery) return;
+    await _openRecovery();
   }
 }
 

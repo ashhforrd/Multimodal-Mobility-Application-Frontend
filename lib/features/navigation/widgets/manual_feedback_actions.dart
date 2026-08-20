@@ -4,7 +4,13 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../application/navigation_controller.dart';
 
 class ManualFeedbackActions extends ConsumerWidget {
-  const ManualFeedbackActions({super.key});
+  const ManualFeedbackActions({
+    required this.onRecoveryRequested,
+    super.key,
+  });
+
+  final Future<void> Function() onRecoveryRequested;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final nav = ref.watch(navigationProvider);
@@ -29,42 +35,51 @@ class ManualFeedbackActions extends ConsumerWidget {
                       icon: const Icon(LucideIcons.x),
                     )
                   ]),
-                  _Action(LucideIcons.rotateCcw, 'Ulangi instruksi', () {
+                  const SizedBox(height: 4),
+                  _Action('Ulangi instruksi', () {
                     ref
                         .read(navigationProvider.notifier)
                         .speakActiveInstruction();
                     close();
                   }),
-                  _Action(LucideIcons.stepForward, 'Instruksi berikutnya', () {
+                  const Divider(height: 1),
+                  _Action('Dengarkan instruksi berikutnya', () {
                     final next = nav.nextStep?.instruction ??
                         'Anda sudah di langkah terakhir.';
                     ref.read(ttsProvider).speak(next);
                     close();
                   }),
-                  _Action(LucideIcons.circleHelp, 'Saya bingung', () {
+                  const Divider(height: 1),
+                  _Action('Saya bingung', () {
                     final text =
                         'Cari ${nav.activeStep?.landmarkName}. ${nav.activeInstruction}';
                     ref.read(navigationProvider.notifier).useInstruction(text);
                     ref.read(ttsProvider).speak(text);
                     close();
                   }),
-                  _Action(LucideIcons.route, 'Bantu kembali ke rute', () {
+                  const Divider(height: 1),
+                  _Action('Pulihkan rute', () async {
                     close();
-                    ref.read(navigationProvider.notifier).markOffRoute();
+                    await onRecoveryRequested();
                   })
                 ])));
   }
 }
 
 class _Action extends StatelessWidget {
-  const _Action(this.icon, this.label, this.onTap);
-  final IconData icon;
+  const _Action(this.label, this.onTap);
+
   final String label;
   final VoidCallback onTap;
+
   @override
   Widget build(BuildContext context) => ListTile(
-      onTap: onTap,
-      leading: CircleAvatar(child: Icon(icon)),
-      title: Text(label),
-      trailing: const Icon(LucideIcons.chevronRight));
+        minTileHeight: 52,
+        contentPadding: EdgeInsets.zero,
+        onTap: onTap,
+        title: Text(
+          label,
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+      );
 }

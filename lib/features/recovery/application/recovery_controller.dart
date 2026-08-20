@@ -39,7 +39,7 @@ class RecoveryController extends StateNotifier<RecoveryState> {
       return;
     }
     _ref.read(navigationProvider.notifier).beginRecovery();
-    state = state.copyWith(isRecalculating: true, errorMessage: null);
+    state = const RecoveryState(isRecalculating: true);
     try {
       final plan = await _routeService.getRecoveryPlan(
         currentPosition: position,
@@ -67,12 +67,21 @@ class RecoveryController extends StateNotifier<RecoveryState> {
   Future<void> speak() => _textToSpeechService.speak(state.recoveryInstruction);
 
   Future<void> recalculate() async {
+    if (state.isRecalculating) return;
+    state = state.copyWith(isRecalculating: true, errorMessage: null);
+    await _ref.read(navigationProvider.notifier).loadCurrentLocation();
     final navigation = _ref.read(navigationProvider);
     final route = navigation.currentRoute;
     final position = navigation.currentPosition;
-    if (route == null || position == null) return;
+    if (route == null || position == null) {
+      state = state.copyWith(
+        isRecalculating: false,
+        errorMessage:
+            'Posisi terbaru belum tersedia. Periksa GPS lalu coba kembali.',
+      );
+      return;
+    }
     final count = state.recalculationCount + 1;
-    state = state.copyWith(isRecalculating: true, errorMessage: null);
     try {
       final plan = await _routeService.getRecoveryPlan(
         currentPosition: position,

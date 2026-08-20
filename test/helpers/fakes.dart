@@ -112,7 +112,7 @@ NavigationRoute buildTestRoute({
 class FakeLocationService extends LocationService {
   FakeLocationService({this.position = testOrigin});
 
-  final GeoPoint position;
+  GeoPoint position;
 
   @override
   Future<LocationSnapshot> getCurrentPosition() async => LocationSnapshot(
@@ -136,6 +136,8 @@ class FakeUnavailableLocationService extends LocationService {
 }
 
 class FakeRouteService extends RouteService {
+  final List<GeoPoint> recoveryOrigins = [];
+
   @override
   Future<NavigationRoute> getRoute(
     Destination destination, {
@@ -150,6 +152,7 @@ class FakeRouteService extends RouteService {
     required int currentStepIndex,
     int recalculationCount = 0,
   }) async {
+    recoveryOrigins.add(currentPosition);
     final rejoin = GeoPoint(
       latitude: route
           .steps[(currentStepIndex + 1).clamp(0, route.steps.length - 1)]

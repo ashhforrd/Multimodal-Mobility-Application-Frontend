@@ -76,11 +76,13 @@ class _RouteRecoveryViewState extends ConsumerState<RouteRecoveryView> {
             ),
             const SizedBox(height: 16),
             NavigationMap(
+              key: const Key('recovery-navigation-map'),
               route: navigation.currentRoute,
               currentPosition: navigation.currentPosition,
               destination: navigation.selectedDestination,
               recoveryPoints: recovery.recoveryPoints,
               height: 280,
+              followUser: true,
             ),
             const SizedBox(height: 16),
             Card(
@@ -141,6 +143,7 @@ class _RouteRecoveryViewState extends ConsumerState<RouteRecoveryView> {
             ),
             const SizedBox(height: 10),
             FilledButton.icon(
+              key: const Key('recalculate-recovery-route'),
               onPressed: recovery.isRecalculating
                   ? null
                   : () => ref.read(recoveryProvider.notifier).recalculate(),
@@ -148,7 +151,7 @@ class _RouteRecoveryViewState extends ConsumerState<RouteRecoveryView> {
               label: Text(
                 recovery.isRecalculating
                     ? 'Menghitung ulang…'
-                    : 'Hitung ulang rute',
+                    : 'Perbarui dari posisi saat ini',
               ),
             ),
             if (kShowDemoControls) ...[
