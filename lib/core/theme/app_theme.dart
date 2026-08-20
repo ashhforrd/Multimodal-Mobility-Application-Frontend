@@ -33,19 +33,47 @@ abstract final class AppTheme {
             color: ink,
             fontWeight: FontWeight.w700,
             fontSize: 20,
+            letterSpacing: -.4,
           ),
         ),
         textTheme: const TextTheme(
+          displayLarge: TextStyle(fontSize: 57, letterSpacing: -1.14),
+          displayMedium: TextStyle(fontSize: 45, letterSpacing: -.9),
+          displaySmall: TextStyle(fontSize: 36, letterSpacing: -.72),
           headlineLarge: TextStyle(
-              color: ink, fontWeight: FontWeight.w700, letterSpacing: -1.2),
+              color: ink,
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -.64),
           headlineMedium: TextStyle(
-              color: ink, fontWeight: FontWeight.w700, letterSpacing: -0.8),
+              color: ink,
+              fontSize: 28,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -.56),
           headlineSmall: TextStyle(
-              color: ink, fontWeight: FontWeight.w700, letterSpacing: -0.5),
-          titleLarge: TextStyle(color: ink, fontWeight: FontWeight.w700),
-          titleMedium: TextStyle(color: ink, fontWeight: FontWeight.w600),
-          bodyLarge: TextStyle(color: ink, height: 1.45),
-          bodyMedium: TextStyle(color: muted, height: 1.4),
+              color: ink,
+              fontSize: 24,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -.48),
+          titleLarge: TextStyle(
+              color: ink,
+              fontSize: 22,
+              fontWeight: FontWeight.w700,
+              letterSpacing: -.44),
+          titleMedium: TextStyle(
+              color: ink,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              letterSpacing: -.32),
+          titleSmall: TextStyle(fontSize: 14, letterSpacing: -.28),
+          bodyLarge: TextStyle(
+              color: ink, fontSize: 16, height: 1.45, letterSpacing: -.32),
+          bodyMedium: TextStyle(
+              color: muted, fontSize: 14, height: 1.4, letterSpacing: -.28),
+          bodySmall: TextStyle(fontSize: 12, letterSpacing: -.24),
+          labelLarge: TextStyle(fontSize: 14, letterSpacing: -.28),
+          labelMedium: TextStyle(fontSize: 12, letterSpacing: -.24),
+          labelSmall: TextStyle(fontSize: 11, letterSpacing: -.22),
         ),
         cardTheme: CardThemeData(
           elevation: 0,
@@ -79,7 +107,8 @@ abstract final class AppTheme {
             textStyle: const TextStyle(
                 fontFamily: 'Satoshi',
                 fontWeight: FontWeight.w700,
-                fontSize: 15),
+                fontSize: 15,
+                letterSpacing: -.3),
             shape:
                 RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
           ),

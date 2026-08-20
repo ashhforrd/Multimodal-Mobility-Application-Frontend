@@ -8,6 +8,36 @@ import 'package:langkah_sahabat/features/navigation/application/navigation_contr
 import 'helpers/fakes.dart';
 
 void main() {
+  test('design system menggunakan letter spacing minus dua persen', () {
+    final textTheme = AppTheme.light.textTheme;
+    final styles = [
+      textTheme.displayLarge,
+      textTheme.displayMedium,
+      textTheme.displaySmall,
+      textTheme.headlineLarge,
+      textTheme.headlineMedium,
+      textTheme.headlineSmall,
+      textTheme.titleLarge,
+      textTheme.titleMedium,
+      textTheme.titleSmall,
+      textTheme.bodyLarge,
+      textTheme.bodyMedium,
+      textTheme.bodySmall,
+      textTheme.labelLarge,
+      textTheme.labelMedium,
+      textTheme.labelSmall,
+    ];
+
+    for (final style in styles) {
+      expect(style, isNotNull);
+      expect(style!.fontSize, isNotNull);
+      expect(
+        style.letterSpacing,
+        closeTo(style.fontSize! * -.02, .001),
+      );
+    }
+  });
+
   testWidgets('menampilkan layar pencarian tujuan', (tester) async {
     await tester.pumpWidget(_testApp());
     await tester.pumpAndSettle();

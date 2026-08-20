@@ -306,6 +306,7 @@ class _MapBadge extends StatelessWidget {
                 style: const TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 12,
+                  letterSpacing: -.24,
                   color: AppTheme.ink,
                 ),
               ),

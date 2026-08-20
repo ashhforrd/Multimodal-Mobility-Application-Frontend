@@ -36,7 +36,7 @@ class NavigationInstructionCard extends StatelessWidget {
                     color: Color(0xFFCFE3FF),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    letterSpacing: 1.2)),
+                    letterSpacing: -.22)),
             const Spacer(),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
@@ -65,7 +65,7 @@ class NavigationInstructionCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                     fontSize: 24,
                     height: 1.18,
-                    letterSpacing: -.4)),
+                    letterSpacing: -.48)),
           ),
           const SizedBox(height: 18),
           Row(children: [

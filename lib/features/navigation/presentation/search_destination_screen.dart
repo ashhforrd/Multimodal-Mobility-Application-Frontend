@@ -72,6 +72,7 @@ class _SearchDestinationScreenState
                                 : 'Cari tujuan nyata',
                             style: const TextStyle(
                               fontSize: 17,
+                              letterSpacing: -.34,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -330,7 +331,7 @@ class _Header extends StatelessWidget {
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,
-                        letterSpacing: 1.8,
+                        letterSpacing: -.24,
                         fontSize: 12,
                       ),
                     ),
@@ -339,6 +340,7 @@ class _Header extends StatelessWidget {
                       style: TextStyle(
                         color: Color(0xFFCFE3FF),
                         fontSize: 12,
+                        letterSpacing: -.24,
                       ),
                     ),
                   ],
@@ -353,13 +355,17 @@ class _Header extends StatelessWidget {
                 fontSize: 32,
                 height: 1.05,
                 fontWeight: FontWeight.w700,
-                letterSpacing: -1,
+                letterSpacing: -.64,
               ),
             ),
             const SizedBox(height: 7),
             const Text(
               'Navigasi yang lebih aman, jelas, dan personal.',
-              style: TextStyle(color: Color(0xFFD9E9FF), fontSize: 15),
+              style: TextStyle(
+                color: Color(0xFFD9E9FF),
+                fontSize: 15,
+                letterSpacing: -.3,
+              ),
             ),
             const SizedBox(height: 20),
             TextField(
@@ -481,6 +487,7 @@ class _HeaderAction extends StatelessWidget {
                       color: Colors.white,
                       fontWeight: FontWeight.w600,
                       fontSize: 12,
+                      letterSpacing: -.24,
                     ),
                   ),
                 ),

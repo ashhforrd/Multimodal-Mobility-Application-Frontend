@@ -227,6 +227,7 @@ class _ConversationBubble extends StatelessWidget {
                     style: TextStyle(
                       color: foregroundColor.withValues(alpha: .75),
                       fontSize: 11,
+                      letterSpacing: -.22,
                       fontWeight: FontWeight.w700,
                     ),
                   ),

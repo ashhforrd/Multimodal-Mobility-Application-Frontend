@@ -244,7 +244,13 @@ class _SummaryItem extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(label, style: const TextStyle(fontSize: 11)),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      letterSpacing: -.22,
+                    ),
+                  ),
                   Text(
                     value,
                     style: const TextStyle(

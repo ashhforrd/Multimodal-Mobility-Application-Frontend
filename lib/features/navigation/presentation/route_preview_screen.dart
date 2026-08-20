@@ -122,6 +122,7 @@ class RoutePreviewScreen extends ConsumerWidget {
                     style: const TextStyle(
                       color: Colors.white,
                       fontSize: 23,
+                      letterSpacing: -.46,
                       height: 1.2,
                       fontWeight: FontWeight.w700,
                     ),
@@ -220,7 +221,13 @@ class _Metric extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 2),
-              Text(label, style: const TextStyle(fontSize: 12)),
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  letterSpacing: -.24,
+                ),
+              ),
             ]),
           ),
         ),

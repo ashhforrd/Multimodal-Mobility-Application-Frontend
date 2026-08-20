@@ -63,6 +63,7 @@ class _RouteRecoveryViewState extends ConsumerState<RouteRecoveryView> {
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 19,
+                          letterSpacing: -.38,
                           color: AppTheme.ink,
                         ),
                       ),
@@ -109,6 +110,7 @@ class _RouteRecoveryViewState extends ConsumerState<RouteRecoveryView> {
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 21,
+                          letterSpacing: -.42,
                           height: 1.25,
                           color: AppTheme.ink,
                         ),

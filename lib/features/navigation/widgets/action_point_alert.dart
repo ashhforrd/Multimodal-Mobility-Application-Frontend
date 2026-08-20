@@ -13,7 +13,11 @@ class ActionPointAlert extends ConsumerWidget {
         title: const Text('Mendekati titik aksi'),
         content: Column(mainAxisSize: MainAxisSize.min, children: [
           Text(nav.activeInstruction,
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 19),
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 19,
+                letterSpacing: -.38,
+              ),
               textAlign: TextAlign.center),
           const SizedBox(height: 12),
           Text(
