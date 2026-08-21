@@ -42,9 +42,16 @@ void main() {
     await recovery.recalculate();
 
     expect(container.read(recoveryProvider).recalculationCount, 1);
-    expect(routeService.recoveryOrigins.last, updatedPosition);
+    expect(routeService.routeOrigins.last, updatedPosition);
     expect(container.read(navigationProvider).currentPosition, updatedPosition);
-    expect(tts.spokenTexts.last, contains('Putar balik'));
+    expect(
+      container.read(navigationProvider).currentRoute!.origin,
+      updatedPosition,
+    );
+    expect(
+      tts.spokenTexts.last,
+      container.read(navigationProvider).activeInstruction,
+    );
 
     recovery.finish();
     expect(container.read(navigationProvider).routeStatus, RouteStatus.active);

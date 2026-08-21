@@ -125,14 +125,19 @@ class RouteService {
         )
         .cast<Map<String, dynamic>>()
         .toList();
-    if (geometry.length < 2 || rawSteps.isEmpty) {
+    if (geometry.length < 2 || rawSteps.length < 2) {
       throw const RouteServiceException(
         'Data rute yang diterima tidak lengkap. Pilih tujuan lain.',
       );
     }
     final steps = <RouteStep>[
-      for (var index = 0; index < rawSteps.length; index++)
-        _parseStep(rawSteps[index], index, destination),
+      for (var index = 0; index < rawSteps.length - 1; index++)
+        _parseStep(
+          segmentData: rawSteps[index],
+          actionData: rawSteps[index + 1],
+          index: index,
+          destination: destination,
+        ),
     ];
     final distance = (routeData['distance'] as num).round();
     final durationSeconds = (routeData['duration'] as num).toDouble();
@@ -147,19 +152,28 @@ class RouteService {
     );
   }
 
-  RouteStep _parseStep(
-    Map<String, dynamic> data,
-    int index,
-    Destination destination,
-  ) {
-    final maneuver = data['maneuver'] as Map<String, dynamic>? ?? const {};
+  RouteStep _parseStep({
+    required Map<String, dynamic> segmentData,
+    required Map<String, dynamic> actionData,
+    required int index,
+    required Destination destination,
+  }) {
+    final maneuver =
+        actionData['maneuver'] as Map<String, dynamic>? ?? const {};
     final type = maneuver['type'] as String? ?? 'continue';
     final modifier = maneuver['modifier'] as String?;
-    final name = (data['name'] as String? ?? '').trim();
-    final stepGeometry = data['geometry'] as Map<String, dynamic>?;
-    final points = _parseCoordinates(stepGeometry?['coordinates']);
+    final name = (actionData['name'] as String? ?? '').trim();
+    final actionGeometry = actionData['geometry'] as Map<String, dynamic>?;
+    final actionPoints = _parseCoordinates(actionGeometry?['coordinates']);
+    final segmentGeometry = segmentData['geometry'] as Map<String, dynamic>?;
+    final segmentPoints = _parseCoordinates(segmentGeometry?['coordinates']);
     final maneuverPoint = _parsePoint(maneuver['location']);
-    final target = points.isNotEmpty ? points.last : maneuverPoint;
+    final target = maneuverPoint ??
+        (actionPoints.isNotEmpty
+            ? actionPoints.first
+            : segmentPoints.isNotEmpty
+                ? segmentPoints.last
+                : null);
     if (target == null) {
       throw const RouteServiceException(
           'Koordinat instruksi rute tidak valid.');
@@ -173,14 +187,11 @@ class RouteService {
           : type == 'arrive'
               ? destination.name
               : 'Jalur di depan',
-      distanceMeters: (data['distance'] as num? ?? 0).round(),
+      distanceMeters: (segmentData['distance'] as num? ?? 0).round(),
       actionType: action,
       latitude: target.latitude,
       longitude: target.longitude,
-      shouldTriggerHaptic: action == RouteActionType.turnLeft ||
-          action == RouteActionType.turnRight ||
-          action == RouteActionType.cross ||
-          action == RouteActionType.arrive,
+      shouldTriggerHaptic: _isActionPoint(action),
     );
   }
 
@@ -191,10 +202,38 @@ class RouteService {
     if (lowerName.contains('penyeberangan') || lowerName.contains('crossing')) {
       return RouteActionType.cross;
     }
-    if (modifier?.contains('left') == true) return RouteActionType.turnLeft;
-    if (modifier?.contains('right') == true) return RouteActionType.turnRight;
+    switch (modifier) {
+      case 'slight left':
+        return RouteActionType.slightLeft;
+      case 'slight right':
+        return RouteActionType.slightRight;
+      case 'sharp left':
+        return RouteActionType.sharpLeft;
+      case 'sharp right':
+        return RouteActionType.sharpRight;
+      case 'uturn':
+        return RouteActionType.uTurn;
+      case 'left':
+        return RouteActionType.turnLeft;
+      case 'right':
+        return RouteActionType.turnRight;
+    }
     return RouteActionType.straight;
   }
+
+  bool _isActionPoint(RouteActionType action) => switch (action) {
+        RouteActionType.slightLeft ||
+        RouteActionType.slightRight ||
+        RouteActionType.turnLeft ||
+        RouteActionType.turnRight ||
+        RouteActionType.sharpLeft ||
+        RouteActionType.sharpRight ||
+        RouteActionType.uTurn ||
+        RouteActionType.cross ||
+        RouteActionType.arrive =>
+          true,
+        _ => false,
+      };
 
   String _instruction(
     String type,
@@ -207,10 +246,10 @@ class RouteService {
       'uturn' => 'putar balik',
       'sharp right' => 'belok tajam ke kanan',
       'right' => 'belok kanan',
-      'slight right' => 'ambil sedikit ke kanan',
+      'slight right' => 'serong sedikit ke kanan',
       'sharp left' => 'belok tajam ke kiri',
       'left' => 'belok kiri',
-      'slight left' => 'ambil sedikit ke kiri',
+      'slight left' => 'serong sedikit ke kiri',
       _ => 'lanjutkan lurus',
     };
     return switch (type) {

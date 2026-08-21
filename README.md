@@ -73,6 +73,8 @@ Demo controls are hidden during field testing. Enable them explicitly with:
 flutter run --dart-define=SHOW_DEMO_CONTROLS=true
 ```
 
+The Home screen will show **Developer automatic test**. It runs a deterministic mock walk through slight turns, regular turns, action alerts, and arrival without GPS or network access.
+
 ## Architecture
 
 ```text

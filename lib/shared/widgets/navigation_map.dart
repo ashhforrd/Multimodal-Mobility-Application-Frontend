@@ -44,6 +44,7 @@ class _NavigationMapState extends State<NavigationMap>
   late final MapController _mapController;
   late bool _isFollowingUser;
   bool _mapReady = false;
+  double _cameraRotation = 0;
 
   @override
   void initState() {
@@ -132,6 +133,10 @@ class _NavigationMapState extends State<NavigationMap>
                   final position = widget.currentPosition;
                   if (position != null) _followPosition(position);
                 }
+              },
+              onPositionChanged: (camera, _) {
+                if ((_cameraRotation - camera.rotation).abs() < .1) return;
+                setState(() => _cameraRotation = camera.rotation);
               },
               onTap: widget.selectable
                   ? (_, point) => widget.onPointSelected?.call(
@@ -260,10 +265,17 @@ class _NavigationMapState extends State<NavigationMap>
                   shape: BoxShape.circle,
                   color: AppTheme.primary,
                 ),
-                child: const Icon(
-                  LucideIcons.navigation,
-                  color: Colors.white,
-                  size: 16,
+                child: Transform.rotate(
+                  angle:
+                      (((_effectiveCourse(position) ?? 0) + _cameraRotation) %
+                              360) *
+                          math.pi /
+                          180,
+                  child: const Icon(
+                    LucideIcons.navigation2,
+                    color: Colors.white,
+                    size: 17,
+                  ),
                 ),
               ),
             ),
@@ -343,7 +355,7 @@ class _NavigationMapState extends State<NavigationMap>
 
   void _followPosition(GeoPoint position, {GeoPoint? previous}) {
     if (!_mapReady || !_isFollowingUser) return;
-    final course = position.courseDegrees ??
+    final course = _effectiveCourse(position) ??
         (previous == null ? null : _bearingBetween(previous, position));
     final rotation =
         course == null ? _mapController.camera.rotation : (360 - course) % 360;
@@ -352,6 +364,66 @@ class _NavigationMapState extends State<NavigationMap>
       math.max(_mapController.camera.zoom, 17),
       rotation,
       id: 'follow-walking-direction',
+    );
+  }
+
+  double? _effectiveCourse(GeoPoint position) =>
+      _nearestRouteBearing(position) ?? position.courseDegrees;
+
+  double? _nearestRouteBearing(GeoPoint position) {
+    final routePoints = widget.recoveryPoints.length > 1
+        ? widget.recoveryPoints
+        : widget.route?.geometry ?? const <GeoPoint>[];
+    if (routePoints.length < 2) return null;
+    var nearestDistance = double.infinity;
+    double? bearing;
+    for (var index = 0; index < routePoints.length - 1; index++) {
+      final start = routePoints[index];
+      final end = routePoints[index + 1];
+      final distance = _distanceToSegment(position, start, end);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        bearing = _bearingBetween(start, end);
+      }
+    }
+    return bearing;
+  }
+
+  double _distanceToSegment(
+    GeoPoint point,
+    GeoPoint start,
+    GeoPoint end,
+  ) {
+    const earthRadius = 6371000.0;
+    final referenceLatitude =
+        (start.latitude + end.latitude + point.latitude) / 3 * math.pi / 180;
+    double x(GeoPoint value) =>
+        value.longitude *
+        math.pi /
+        180 *
+        math.cos(referenceLatitude) *
+        earthRadius;
+    double y(GeoPoint value) => value.latitude * math.pi / 180 * earthRadius;
+    final pointX = x(point);
+    final pointY = y(point);
+    final startX = x(start);
+    final startY = y(start);
+    final deltaX = x(end) - startX;
+    final deltaY = y(end) - startY;
+    final lengthSquared = deltaX * deltaX + deltaY * deltaY;
+    if (lengthSquared == 0) {
+      return math.sqrt(
+        math.pow(pointX - startX, 2) + math.pow(pointY - startY, 2),
+      );
+    }
+    final fraction =
+        (((pointX - startX) * deltaX + (pointY - startY) * deltaY) /
+                lengthSquared)
+            .clamp(0.0, 1.0);
+    final nearestX = startX + fraction * deltaX;
+    final nearestY = startY + fraction * deltaY;
+    return math.sqrt(
+      math.pow(pointX - nearestX, 2) + math.pow(pointY - nearestY, 2),
     );
   }
 

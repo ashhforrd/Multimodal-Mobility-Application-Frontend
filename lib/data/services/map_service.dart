@@ -28,8 +28,9 @@ class MapService {
             .replaceFirst(RegExp(r'/$'), '');
 
   static const double actionPointThresholdMeters = 35;
-  static const double stepCompletionThresholdMeters = 12;
-  static const double offRouteThresholdMeters = 60;
+  static const double stepCompletionThresholdMeters = 8;
+  static const double arrivalThresholdMeters = 5;
+  static const double offRouteThresholdMeters = 20;
 
   final http.Client _client;
   final String _searchBaseUrl;
@@ -192,6 +193,53 @@ class MapService {
   bool isOffRoute(GeoPoint point, NavigationRoute route) =>
       nearestDistanceToRoute(point, route) > offRouteThresholdMeters;
 
+  bool hasReachedOrPassed(
+    GeoPoint position,
+    GeoPoint target,
+    NavigationRoute route,
+  ) {
+    if (distanceMeters(position, target) <= stepCompletionThresholdMeters) {
+      return true;
+    }
+    if (nearestDistanceToRoute(position, route) > offRouteThresholdMeters) {
+      return false;
+    }
+    return progressAlongRouteMeters(position, route) + 2 >=
+        progressAlongRouteMeters(target, route);
+  }
+
+  double progressAlongRouteMeters(GeoPoint point, NavigationRoute route) {
+    final points = routePoints(route);
+    if (points.length < 2) return 0;
+    var cumulativeDistance = 0.0;
+    var closestDistance = double.infinity;
+    var closestProgress = 0.0;
+    for (var index = 0; index < points.length - 1; index++) {
+      final start = points[index];
+      final end = points[index + 1];
+      final segmentDistance = distanceMeters(start, end);
+      final metrics = _segmentMetrics(point, start, end);
+      if (metrics.distance < closestDistance) {
+        closestDistance = metrics.distance;
+        closestProgress =
+            cumulativeDistance + segmentDistance * metrics.fraction;
+      }
+      cumulativeDistance += segmentDistance;
+    }
+    return closestProgress;
+  }
+
+  double distanceAlongRouteMeters(
+    GeoPoint position,
+    GeoPoint target,
+    NavigationRoute route,
+  ) =>
+      math.max(
+        0,
+        progressAlongRouteMeters(target, route) -
+            progressAlongRouteMeters(position, route),
+      );
+
   int remainingDistanceMeters(NavigationRoute route, int currentStepIndex) =>
       route.steps
           .skip(currentStepIndex)
@@ -236,6 +284,13 @@ class MapService {
     GeoPoint point,
     GeoPoint start,
     GeoPoint end,
+  ) =>
+      _segmentMetrics(point, start, end).distance;
+
+  ({double distance, double fraction}) _segmentMetrics(
+    GeoPoint point,
+    GeoPoint start,
+    GeoPoint end,
   ) {
     // Proyeksi lokal ini akurat untuk segmen pendek pada rute pejalan kaki.
     const earthRadius = 6371000.0;
@@ -253,15 +308,20 @@ class MapService {
     final deltaX = endX - startX;
     final deltaY = endY - startY;
     final lengthSquared = deltaX * deltaX + deltaY * deltaY;
-    if (lengthSquared == 0) return distanceMeters(point, start);
+    if (lengthSquared == 0) {
+      return (distance: distanceMeters(point, start), fraction: 0);
+    }
     final projection =
         (((pointX - startX) * deltaX + (pointY - startY) * deltaY) /
                 lengthSquared)
             .clamp(0.0, 1.0);
     final nearestX = startX + projection * deltaX;
     final nearestY = startY + projection * deltaY;
-    return math.sqrt(
-      math.pow(pointX - nearestX, 2) + math.pow(pointY - nearestY, 2),
+    return (
+      distance: math.sqrt(
+        math.pow(pointX - nearestX, 2) + math.pow(pointY - nearestY, 2),
+      ),
+      fraction: projection,
     );
   }
 }

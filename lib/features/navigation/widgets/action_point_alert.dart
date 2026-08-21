@@ -25,7 +25,13 @@ class ActionPointAlert extends ConsumerWidget {
           const SizedBox(height: 8),
           const Chip(
               avatar: Icon(LucideIcons.vibrate, size: 16),
-              label: Text('Getaran menandai tindakan penting'))
+              label: Text('Getaran menandai tindakan penting')),
+          const SizedBox(height: 8),
+          const Text(
+            'Dialog ditutup otomatis dalam 5 detik.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12),
+          ),
         ]),
         actions: [
           FilledButton.tonal(
@@ -38,7 +44,7 @@ class ActionPointAlert extends ConsumerWidget {
                 ref.read(navigationProvider.notifier).dismissAlert();
                 Navigator.pop(context);
               },
-              child: const Text('Saya paham'))
+              child: const Text('Tutup'))
         ]);
   }
 }

@@ -137,13 +137,16 @@ class FakeUnavailableLocationService extends LocationService {
 
 class FakeRouteService extends RouteService {
   final List<GeoPoint> recoveryOrigins = [];
+  final List<GeoPoint> routeOrigins = [];
 
   @override
   Future<NavigationRoute> getRoute(
     Destination destination, {
     required GeoPoint origin,
-  }) async =>
-      buildTestRoute(destination: destination, origin: origin);
+  }) async {
+    routeOrigins.add(origin);
+    return buildTestRoute(destination: destination, origin: origin);
+  }
 
   @override
   Future<RecoveryPlan> getRecoveryPlan({

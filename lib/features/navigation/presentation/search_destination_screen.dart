@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lucide_icons_flutter/lucide_icons.dart';
 
+import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/destination.dart';
 import '../../../data/models/geo_point.dart';
@@ -25,6 +26,7 @@ class _SearchDestinationScreenState
   String query = '';
   Destination? selected;
   bool isResolvingMapDestination = false;
+  bool isStartingSimulation = false;
 
   @override
   void initState() {
@@ -76,6 +78,19 @@ class _SearchDestinationScreenState
                     ),
                   ),
                 ),
+                if (kShowDemoControls)
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                    sliver: SliverToBoxAdapter(
+                      child: AppEntrance(
+                        delay: const Duration(milliseconds: 50),
+                        child: _DeveloperTestCard(
+                          isStarting: isStartingSimulation,
+                          onStart: _startDeveloperSimulation,
+                        ),
+                      ),
+                    ),
+                  ),
                 if (_hasMapSelection)
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
@@ -191,6 +206,15 @@ class _SearchDestinationScreenState
           query,
           nearby: ref.read(navigationProvider).currentPosition,
         );
+  }
+
+  Future<void> _startDeveloperSimulation() async {
+    if (isStartingSimulation) return;
+    setState(() => isStartingSimulation = true);
+    await ref.read(navigationProvider.notifier).startDeveloperSimulation();
+    if (!mounted) return;
+    setState(() => isStartingSimulation = false);
+    context.go('/navigation');
   }
 
   Future<void> _openRoutePreview(Destination destination) async {
@@ -314,6 +338,54 @@ class _SearchDestinationScreenState
         ..showSnackBar(SnackBar(content: Text(error.message)));
     }
   }
+}
+
+class _DeveloperTestCard extends StatelessWidget {
+  const _DeveloperTestCard({
+    required this.isStarting,
+    required this.onStart,
+  });
+
+  final bool isStarting;
+  final VoidCallback onStart;
+
+  @override
+  Widget build(BuildContext context) => Card(
+        color: const Color(0xFFEAF2FF),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Uji otomatis developer',
+                      style: TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    SizedBox(height: 3),
+                    Text(
+                      'Menjalankan perjalanan simulasi tanpa GPS dan jaringan.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.muted),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              FilledButton.tonal(
+                key: const Key('start-developer-simulation'),
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size(104, 48),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                ),
+                onPressed: isStarting ? null : onStart,
+                child: Text(isStarting ? 'Menyiapkan…' : 'Jalankan'),
+              ),
+            ],
+          ),
+        ),
+      );
 }
 
 class _SelectedMapDestination extends StatelessWidget {

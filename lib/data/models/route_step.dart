@@ -1,8 +1,13 @@
 enum RouteActionType {
   start,
   straight,
+  slightLeft,
+  slightRight,
   turnLeft,
   turnRight,
+  sharpLeft,
+  sharpRight,
+  uTurn,
   cross,
   arrive,
   recover

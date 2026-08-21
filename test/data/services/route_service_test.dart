@@ -26,9 +26,11 @@ void main() {
       expect(route.origin, origin);
       expect(route.destination, testDestination);
       expect(route.geometry, hasLength(3));
-      expect(route.steps, hasLength(3));
-      expect(route.steps.first.instruction, contains('Mulai berjalan'));
-      expect(route.steps[1].actionType, RouteActionType.turnRight);
+      expect(route.steps, hasLength(2));
+      expect(route.steps.first.instruction, contains('Belok kanan'));
+      expect(route.steps.first.actionType, RouteActionType.turnRight);
+      expect(route.steps.first.latitude, middleLatitude(origin));
+      expect(route.steps.first.longitude, middleLongitude(origin));
       expect(route.steps.last.actionType, RouteActionType.arrive);
       expect(route.totalDistanceMeters, 120);
       expect(route.estimatedTimeMinutes, 2);
@@ -55,6 +57,23 @@ void main() {
       expect(plan.instruction, contains(route.steps[1].landmarkName));
     });
 
+    test('membedakan manuver serong dari belokan biasa', () async {
+      final service = RouteService(
+        baseUrl: 'https://router.example/foot',
+        client: MockClient(
+          (request) async => http.Response(
+            _osrmResponse(request.url, modifier: 'slight left'),
+            200,
+          ),
+        ),
+      );
+
+      final route = await service.getRoute(testDestination, origin: origin);
+
+      expect(route.steps.first.actionType, RouteActionType.slightLeft);
+      expect(route.steps.first.instruction, contains('Serong sedikit ke kiri'));
+    });
+
     test('memberikan error ramah ketika OSRM tidak menemukan rute', () async {
       final service = RouteService(
         baseUrl: 'https://router.example/foot',
@@ -77,7 +96,13 @@ void main() {
   });
 }
 
-String _osrmResponse(Uri uri) {
+double middleLatitude(GeoPoint origin) =>
+    (origin.latitude + testDestination.latitude) / 2;
+
+double middleLongitude(GeoPoint origin) =>
+    (origin.longitude + testDestination.longitude) / 2;
+
+String _osrmResponse(Uri uri, {String modifier = 'right'}) {
   final coordinateSegment = uri.pathSegments.last;
   final pairs = coordinateSegment.split(';');
   final start = pairs.first.split(',').map(double.parse).toList();
@@ -119,7 +144,7 @@ String _osrmResponse(Uri uri) {
                 },
                 'maneuver': {
                   'type': 'turn',
-                  'modifier': 'right',
+                  'modifier': modifier,
                   'location': middle,
                 },
               },

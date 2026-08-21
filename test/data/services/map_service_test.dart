@@ -27,6 +27,16 @@ void main() {
       const farPoint = GeoPoint(latitude: -6.8800, longitude: 107.6200);
 
       expect(service.isOffRoute(farPoint, route), isTrue);
+      expect(MapService.offRouteThresholdMeters, 20);
+    });
+
+    test('titik aksi tidak terlewat ketika posisi sudah melewati manuver', () {
+      const target = GeoPoint(latitude: -6.8905, longitude: 107.6095);
+      const before = GeoPoint(latitude: -6.89030, longitude: 107.60930);
+      const passed = GeoPoint(latitude: -6.89065, longitude: 107.60965);
+
+      expect(service.hasReachedOrPassed(before, target, route), isFalse);
+      expect(service.hasReachedOrPassed(passed, target, route), isTrue);
     });
 
     test('menghitung jarak tersisa dari langkah aktif', () {

@@ -6,6 +6,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/app_entrance.dart';
+import '../../../shared/widgets/auto_closing_dialog.dart';
 import '../../../shared/widgets/navigation_map.dart';
 import '../../voice/presentation/voice_interaction_panel.dart';
 import '../application/navigation_controller.dart';
@@ -26,6 +27,7 @@ class ActiveNavigationScreen extends ConsumerStatefulWidget {
 class _ActiveNavigationScreenState
     extends ConsumerState<ActiveNavigationScreen> {
   bool _dialogVisible = false;
+  bool _arrivalDialogVisible = false;
   bool _openingRecovery = false;
 
   Future<void> _openSheet(Widget child) => showModalBottomSheet<void>(
@@ -48,6 +50,8 @@ class _ActiveNavigationScreenState
       (_, status) {
         if (status == RouteStatus.offRoute && !_openingRecovery) {
           _openRecovery();
+        } else if (status == RouteStatus.completed && !_arrivalDialogVisible) {
+          _showArrivalAlert();
         }
       },
     );
@@ -112,6 +116,7 @@ class _ActiveNavigationScreenState
                   instruction: navigation.activeInstruction,
                   landmark: navigation.activeStep!.landmarkName,
                   distance: navigation.distanceToNextActionPoint,
+                  actionType: navigation.activeStep!.actionType,
                 ),
               ),
             ),
@@ -219,12 +224,16 @@ class _ActiveNavigationScreenState
 
   Future<void> _showActionAlert() async {
     _dialogVisible = true;
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => const ActionPointAlert(),
-    );
-    _dialogVisible = false;
+    try {
+      await showAutoClosingDialog<void>(
+        context: context,
+        duration: kNavigationDialogAutoCloseDuration,
+        onAutoClose: () => ref.read(navigationProvider.notifier).dismissAlert(),
+        builder: (_) => const ActionPointAlert(),
+      );
+    } finally {
+      _dialogVisible = false;
+    }
   }
 
   Future<void> _openRecovery() async {
@@ -233,6 +242,53 @@ class _ActiveNavigationScreenState
       await context.push('/recovery');
     } finally {
       _openingRecovery = false;
+    }
+  }
+
+  Future<void> _showArrivalAlert() async {
+    _arrivalDialogVisible = true;
+    try {
+      await showAutoClosingDialog<void>(
+        context: context,
+        duration: kNavigationDialogAutoCloseDuration,
+        builder: (dialogContext) {
+          return AlertDialog(
+            icon: const Icon(
+              LucideIcons.badgeCheck,
+              color: AppTheme.primary,
+              size: 34,
+            ),
+            title: const Text('Tujuan tercapai'),
+            content: const Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Anda sudah berada dalam jarak 5 meter dari tujuan.',
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 10),
+                Text(
+                  'Dialog ditutup otomatis dalam 5 detik.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: AppTheme.muted),
+                ),
+              ],
+            ),
+            actions: [
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text('Selesai'),
+              ),
+            ],
+          );
+        },
+      );
+    } finally {
+      _arrivalDialogVisible = false;
+    }
+    if (mounted &&
+        ref.read(navigationProvider).routeStatus == RouteStatus.completed) {
+      await _finishJourney();
     }
   }
 

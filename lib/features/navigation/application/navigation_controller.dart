@@ -8,6 +8,7 @@ import '../../../data/models/route_step.dart';
 import '../../../data/services/haptic_service.dart';
 import '../../../data/services/location_service.dart';
 import '../../../data/services/map_service.dart';
+import '../../../data/services/navigation_simulation_service.dart';
 import '../../../data/services/route_service.dart';
 import '../../../data/services/text_to_speech_service.dart';
 import 'navigation_state.dart';
@@ -16,6 +17,8 @@ final routeServiceProvider = Provider<RouteService>((_) => RouteService());
 final locationServiceProvider =
     Provider<LocationService>((_) => LocationService());
 final mapServiceProvider = Provider<MapService>((_) => MapService());
+final navigationSimulationProvider = Provider<NavigationSimulationService>(
+    (_) => const NavigationSimulationService());
 final ttsProvider = Provider<TextToSpeechService>((_) => TextToSpeechService());
 final hapticProvider = Provider<HapticService>((_) => HapticService());
 
@@ -25,6 +28,7 @@ final navigationProvider =
     routeService: ref.watch(routeServiceProvider),
     locationService: ref.watch(locationServiceProvider),
     mapService: ref.watch(mapServiceProvider),
+    navigationSimulationService: ref.watch(navigationSimulationProvider),
     textToSpeechService: ref.watch(ttsProvider),
     hapticService: ref.watch(hapticProvider),
   ),
@@ -35,11 +39,14 @@ class NavigationController extends StateNotifier<NavigationState> {
     required RouteService routeService,
     required LocationService locationService,
     required MapService mapService,
+    NavigationSimulationService navigationSimulationService =
+        const NavigationSimulationService(),
     required TextToSpeechService textToSpeechService,
     required HapticService hapticService,
   })  : _routeService = routeService,
         _locationService = locationService,
         _mapService = mapService,
+        _navigationSimulationService = navigationSimulationService,
         _textToSpeechService = textToSpeechService,
         _hapticService = hapticService,
         super(const NavigationState());
@@ -47,10 +54,14 @@ class NavigationController extends StateNotifier<NavigationState> {
   final RouteService _routeService;
   final LocationService _locationService;
   final MapService _mapService;
+  final NavigationSimulationService _navigationSimulationService;
   final TextToSpeechService _textToSpeechService;
   final HapticService _hapticService;
   final Set<int> _alertedSteps = {};
   StreamSubscription<GeoPoint>? _positionSubscription;
+  Timer? _simulationTimer;
+  var _simulationPositionIndex = 0;
+  var _simulationTickInProgress = false;
 
   Future<void> loadCurrentLocation() async {
     state = state.copyWith(
@@ -128,6 +139,8 @@ class NavigationController extends StateNotifier<NavigationState> {
   Future<void> finishJourney() async {
     final positionSubscription = _positionSubscription;
     _positionSubscription = null;
+    _simulationTimer?.cancel();
+    _simulationTimer = null;
     _alertedSteps.clear();
     state = NavigationState(
       currentPosition: state.currentPosition,
@@ -149,14 +162,16 @@ class NavigationController extends StateNotifier<NavigationState> {
       clearOverride: true,
     );
     await _positionSubscription?.cancel();
+    _simulationTimer?.cancel();
+    _simulationTimer = null;
     _positionSubscription = _locationService.watchPosition().listen(
-          updatePosition,
+          (position) => unawaited(updatePosition(position)),
           onError: (_) => state = state.copyWith(
             locationMessage:
                 'Pembaruan posisi berhenti. Instruksi visual tetap dapat digunakan.',
           ),
         );
-    await speakActiveInstruction();
+    unawaited(speakActiveInstruction());
   }
 
   Future<void> updatePosition(GeoPoint position) async {
@@ -178,7 +193,11 @@ class NavigationController extends StateNotifier<NavigationState> {
       latitude: activeStep.latitude,
       longitude: activeStep.longitude,
     );
-    final distance = _mapService.distanceMeters(position, target).round();
+    final directDistance = _mapService.distanceMeters(position, target);
+    final distance = (activeStep.actionType == RouteActionType.arrive
+            ? directDistance
+            : _mapService.distanceAlongRouteMeters(position, target, route))
+        .round();
     final laterDistance = route.steps
         .skip(state.currentStepIndex + 1)
         .fold<int>(0, (total, step) => total + step.distanceMeters);
@@ -193,18 +212,12 @@ class NavigationController extends StateNotifier<NavigationState> {
       estimatedRemainingMinutes: minutes,
     );
 
-    if (activeStep.shouldTriggerHaptic &&
-        distance <= MapService.actionPointThresholdMeters &&
-        !_alertedSteps.contains(state.currentStepIndex)) {
-      _alertedSteps.add(state.currentStepIndex);
-      await showActionAlert();
-      return;
-    }
-
-    if (distance <= MapService.stepCompletionThresholdMeters &&
+    if (directDistance <= MapService.arrivalThresholdMeters &&
         activeStep.actionType == RouteActionType.arrive) {
       final positionSubscription = _positionSubscription;
       _positionSubscription = null;
+      _simulationTimer?.cancel();
+      _simulationTimer = null;
       state = state.copyWith(
         routeStatus: RouteStatus.completed,
         distanceToNextActionPoint: 0,
@@ -213,12 +226,24 @@ class NavigationController extends StateNotifier<NavigationState> {
         isActionAlertVisible: false,
       );
       await positionSubscription?.cancel();
-      await _textToSpeechService.speak('Anda telah tiba di tujuan.');
+      await _hapticService.actionPoint();
+      unawaited(_textToSpeechService.speak('Anda telah tiba di tujuan.'));
       return;
     }
 
-    if (distance <= MapService.stepCompletionThresholdMeters &&
-        activeStep.actionType != RouteActionType.arrive) {
+    if (state.isActionAlertVisible) return;
+
+    if (activeStep.shouldTriggerHaptic &&
+        activeStep.actionType != RouteActionType.arrive &&
+        distance <= MapService.actionPointThresholdMeters &&
+        !_alertedSteps.contains(state.currentStepIndex)) {
+      _alertedSteps.add(state.currentStepIndex);
+      await showActionAlert();
+      return;
+    }
+
+    if (activeStep.actionType != RouteActionType.arrive &&
+        _mapService.hasReachedOrPassed(position, target, route)) {
       await nextStep();
     }
   }
@@ -242,7 +267,7 @@ class NavigationController extends StateNotifier<NavigationState> {
       isActionAlertVisible: false,
       clearOverride: true,
     );
-    await speakActiveInstruction();
+    unawaited(speakActiveInstruction());
   }
 
   Future<void> showActionAlert() async {
@@ -254,7 +279,7 @@ class NavigationController extends StateNotifier<NavigationState> {
           ? MapService.actionPointThresholdMeters.round()
           : state.distanceToNextActionPoint,
     );
-    await speakActiveInstruction();
+    unawaited(speakActiveInstruction());
   }
 
   void dismissAlert() => state = state.copyWith(
@@ -286,6 +311,90 @@ class NavigationController extends StateNotifier<NavigationState> {
   void finishRecovery() =>
       state = state.copyWith(routeStatus: RouteStatus.active);
 
+  Future<bool> recalculateActiveRoute() async {
+    final destination = state.selectedDestination;
+    var position = state.currentPosition;
+    if (destination == null) return false;
+    if (position == null) {
+      final snapshot = await _locationService.getCurrentPosition();
+      position = snapshot.point;
+      if (position == null) {
+        state = state.copyWith(
+          locationMessage: snapshot.message,
+          routeErrorMessage: snapshot.message,
+        );
+        return false;
+      }
+    }
+    state = state.copyWith(isLoadingRoute: true, clearRouteError: true);
+    try {
+      final route = await _routeService.getRoute(destination, origin: position);
+      _alertedSteps.clear();
+      state = state.copyWith(
+        currentPosition: position,
+        currentRoute: route,
+        currentStepIndex: 0,
+        routeStatus: RouteStatus.active,
+        distanceToNextActionPoint: route.steps.first.distanceMeters,
+        remainingDistanceMeters: route.totalDistanceMeters,
+        estimatedRemainingMinutes: route.estimatedTimeMinutes,
+        isActionAlertVisible: false,
+        isLoadingRoute: false,
+        clearOverride: true,
+        clearRouteError: true,
+      );
+      unawaited(speakActiveInstruction());
+      return true;
+    } on RouteServiceException catch (error) {
+      state = state.copyWith(
+        isLoadingRoute: false,
+        routeErrorMessage: error.message,
+      );
+      return false;
+    }
+  }
+
+  Future<void> startDeveloperSimulation() async {
+    final scenario = _navigationSimulationService.createCampusScenario();
+    await _positionSubscription?.cancel();
+    _positionSubscription = null;
+    _simulationTimer?.cancel();
+    _alertedSteps.clear();
+    _simulationPositionIndex = 0;
+    state = NavigationState(
+      selectedDestination: scenario.route.destination,
+      currentRoute: scenario.route,
+      currentPosition: scenario.route.origin,
+      routeStatus: RouteStatus.active,
+      distanceToNextActionPoint: scenario.route.steps.first.distanceMeters,
+      remainingDistanceMeters: scenario.route.totalDistanceMeters,
+      estimatedRemainingMinutes: scenario.route.estimatedTimeMinutes,
+    );
+    unawaited(speakActiveInstruction());
+    _simulationTimer = Timer.periodic(
+      const Duration(milliseconds: 650),
+      (_) {
+        if (_simulationTickInProgress ||
+            state.isActionAlertVisible ||
+            state.routeStatus == RouteStatus.completed ||
+            state.routeStatus == RouteStatus.offRoute ||
+            state.routeStatus == RouteStatus.recovering) {
+          return;
+        }
+        if (_simulationPositionIndex >= scenario.positions.length) {
+          _simulationTimer?.cancel();
+          _simulationTimer = null;
+          return;
+        }
+        final position = scenario.positions[_simulationPositionIndex++];
+        _simulationTickInProgress = true;
+        updatePosition(position).whenComplete(
+          () => _simulationTickInProgress = false,
+        );
+      },
+    );
+  }
+
   Future<void> reset() async {
     final route = state.currentRoute;
     if (route == null) return;
@@ -304,6 +413,7 @@ class NavigationController extends StateNotifier<NavigationState> {
   @override
   void dispose() {
     _positionSubscription?.cancel();
+    _simulationTimer?.cancel();
     super.dispose();
   }
 }

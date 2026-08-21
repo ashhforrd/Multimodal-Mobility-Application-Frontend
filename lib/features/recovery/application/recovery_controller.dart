@@ -70,39 +70,28 @@ class RecoveryController extends StateNotifier<RecoveryState> {
     if (state.isRecalculating) return;
     state = state.copyWith(isRecalculating: true, errorMessage: null);
     await _ref.read(navigationProvider.notifier).loadCurrentLocation();
-    final navigation = _ref.read(navigationProvider);
-    final route = navigation.currentRoute;
-    final position = navigation.currentPosition;
-    if (route == null || position == null) {
+    final navigationController = _ref.read(navigationProvider.notifier);
+    final success = await navigationController.recalculateActiveRoute();
+    if (!success) {
+      final navigation = _ref.read(navigationProvider);
       state = state.copyWith(
         isRecalculating: false,
-        errorMessage:
-            'Posisi terbaru belum tersedia. Periksa GPS lalu coba kembali.',
+        errorMessage: navigation.routeErrorMessage ??
+            navigation.locationMessage ??
+            'Rute belum dapat diperbarui. Periksa GPS lalu coba kembali.',
       );
       return;
     }
     final count = state.recalculationCount + 1;
-    try {
-      final plan = await _routeService.getRecoveryPlan(
-        currentPosition: position,
-        route: route,
-        currentStepIndex: navigation.currentStepIndex,
-        recalculationCount: count,
-      );
-      state = state.copyWith(
-        recalculationCount: count,
-        recoveryInstruction: plan.instruction,
-        recoveryPoints: plan.points,
-        rejoinPoint: plan.rejoinPoint,
-        isRecalculating: false,
-      );
-      await speak();
-    } on RouteServiceException catch (error) {
-      state = state.copyWith(
-        isRecalculating: false,
-        errorMessage: error.message,
-      );
-    }
+    state = state.copyWith(
+      isRecovering: false,
+      recalculationCount: count,
+      recoveryInstruction:
+          'Rute utama telah diperbarui dari posisi Anda saat ini.',
+      recoveryPoints: const [],
+      isRecalculating: false,
+      errorMessage: null,
+    );
   }
 
   void finish() {

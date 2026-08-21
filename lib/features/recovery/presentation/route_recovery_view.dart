@@ -151,7 +151,7 @@ class _RouteRecoveryViewState extends ConsumerState<RouteRecoveryView> {
               label: Text(
                 recovery.isRecalculating
                     ? 'Menghitung ulang…'
-                    : 'Perbarui dari posisi saat ini',
+                    : 'Perbarui rute navigasi',
               ),
             ),
             if (kShowDemoControls) ...[
