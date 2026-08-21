@@ -7,6 +7,7 @@ import 'package:langkah_sahabat/data/models/assistant_response.dart';
 import 'package:langkah_sahabat/data/models/geo_point.dart';
 import 'package:langkah_sahabat/data/services/text_to_speech_service.dart';
 import 'package:langkah_sahabat/features/navigation/application/navigation_controller.dart';
+import 'package:langkah_sahabat/features/navigation/application/navigation_state.dart';
 import 'package:langkah_sahabat/features/navigation/presentation/active_navigation_screen.dart';
 import 'package:langkah_sahabat/features/navigation/presentation/route_preview_screen.dart';
 import 'package:langkah_sahabat/features/navigation/widgets/manual_feedback_actions.dart';
@@ -95,20 +96,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('lokasi aktif ditandai dengan tombol sukses berwarna hijau',
+  testWidgets('lokasi saat ini otomatis menjadi titik awal tanpa tombol',
       (tester) async {
     await tester.pumpWidget(_testApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Gunakan lokasi saat ini'));
+    expect(find.text('Gunakan lokasi saat ini'), findsNothing);
+    expect(
+      find.text('Titik awal otomatis memakai lokasi saat ini'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('panah kartu destinasi selalu berwarna putih', (tester) async {
+    await tester.pumpWidget(_testApp());
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).first, 'Perpustakaan Pusat');
+    await tester.tap(find.byTooltip('Cari tujuan'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Lokasi saat ini digunakan'), findsOneWidget);
-    final action = tester.widget<AnimatedContainer>(
-      find.byKey(const Key('current-location-action')),
+    final button = tester.widget<IconButton>(
+      find.byKey(const ValueKey('preview-route-library')),
     );
-    final decoration = action.decoration! as BoxDecoration;
-    expect(decoration.color, AppTheme.success);
+    expect(button.style?.foregroundColor?.resolve({}), Colors.white);
   });
 
   testWidgets(
@@ -210,6 +220,12 @@ void main() {
       initialLocation: '/preview',
       routes: [
         GoRoute(
+          path: '/',
+          builder: (_, __) => const Scaffold(
+            body: Text('Beranda pengujian'),
+          ),
+        ),
+        GoRoute(
           path: '/preview',
           builder: (_, __) => const RoutePreviewScreen(),
         ),
@@ -252,6 +268,37 @@ void main() {
     expect(find.byKey(const Key('follow-walking-direction')), findsOneWidget);
     expect(tts.spokenTexts, isNotEmpty);
     tts.complete();
+
+    final finish = find.text('Selesai perjalanan');
+    await tester.scrollUntilVisible(
+      finish,
+      300,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(finish);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('Selesaikan perjalanan?'), findsOneWidget);
+
+    await tester.tap(find.text('Batal'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('Navigasi aktif'), findsOneWidget);
+
+    await tester.ensureVisible(finish);
+    await tester.tap(finish);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(find.text('Selesaikan perjalanan?'), findsOneWidget);
+    final confirmButton = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Ya, selesai'),
+    );
+    confirmButton.onPressed!();
+    for (var index = 0; index < 10; index++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(container.read(navigationProvider).routeStatus, RouteStatus.idle);
+    expect(find.text('Beranda pengujian'), findsOneWidget);
   });
 
   testWidgets('panel bantuan suara berjalan hands-free tanpa tombol input',

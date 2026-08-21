@@ -8,6 +8,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/models/destination.dart';
 import '../../../data/models/geo_point.dart';
+import '../../../shared/widgets/app_entrance.dart';
 import '../../../shared/widgets/navigation_map.dart';
 import '../application/navigation_controller.dart';
 
@@ -68,97 +69,108 @@ class RoutePreviewScreen extends ConsumerWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           children: [
-            NavigationMap(
-              route: route,
-              currentPosition: navigation.currentPosition,
-              destination: route.destination,
-              height: 260,
+            AppEntrance(
+              child: NavigationMap(
+                route: route,
+                currentPosition: navigation.currentPosition,
+                destination: route.destination,
+                height: 260,
+              ),
             ),
             const SizedBox(height: 20),
-            _RouteEndpoints(
-              originName: originName,
-              originAddress: originAddress,
-              destination: route.destination,
+            AppEntrance(
+              delay: const Duration(milliseconds: 60),
+              child: _RouteEndpoints(
+                originName: originName,
+                originAddress: originAddress,
+                destination: route.destination,
+              ),
             ),
             const SizedBox(height: 18),
-            Row(children: [
-              _Metric(
-                icon: LucideIcons.clock3,
-                value: '${route.estimatedTimeMinutes} menit',
-                label: 'Waktu',
-              ),
-              const SizedBox(width: 10),
-              _Metric(
-                icon: LucideIcons.ruler,
-                value: '${route.totalDistanceMeters} m',
-                label: 'Jarak',
-              ),
-              const SizedBox(width: 10),
-              _Metric(
-                icon: LucideIcons.signpost,
-                value:
-                    '${route.steps.where((step) => step.shouldTriggerHaptic).length}',
-                label: 'Titik aksi',
-              ),
-            ]),
-            const SizedBox(height: 18),
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [AppTheme.deepBlue, AppTheme.primary],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+            AppEntrance(
+              delay: const Duration(milliseconds: 120),
+              child: Row(children: [
+                _Metric(
+                  icon: LucideIcons.clock3,
+                  value: '${route.estimatedTimeMinutes} menit',
+                  label: 'Waktu',
                 ),
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x2B1769E0),
-                    blurRadius: 22,
-                    offset: Offset(0, 10),
+                const SizedBox(width: 10),
+                _Metric(
+                  icon: LucideIcons.ruler,
+                  value: '${route.totalDistanceMeters} m',
+                  label: 'Jarak',
+                ),
+                const SizedBox(width: 10),
+                _Metric(
+                  icon: LucideIcons.signpost,
+                  value:
+                      '${route.steps.where((step) => step.shouldTriggerHaptic).length}',
+                  label: 'Titik aksi',
+                ),
+              ]),
+            ),
+            const SizedBox(height: 18),
+            AppEntrance(
+              delay: const Duration(milliseconds: 180),
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [AppTheme.deepBlue, AppTheme.primary],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Arah awal',
-                    style: TextStyle(
-                      color: Color(0xFFCFE3FF),
-                      fontWeight: FontWeight.w700,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x2B1769E0),
+                      blurRadius: 22,
+                      offset: Offset(0, 10),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    route.steps.first.instruction,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 23,
-                      letterSpacing: -.46,
-                      height: 1.2,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Row(children: [
-                    const Icon(
-                      LucideIcons.landmark,
-                      color: Colors.white,
-                      size: 19,
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: Text(
-                        'Landmark awal: ${route.steps.first.landmarkName}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                        ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Arah awal',
+                      style: TextStyle(
+                        color: Color(0xFFCFE3FF),
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
-                  ]),
-                ],
+                    const SizedBox(height: 8),
+                    Text(
+                      route.steps.first.instruction,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 23,
+                        letterSpacing: -.46,
+                        height: 1.2,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    Row(children: [
+                      const Icon(
+                        LucideIcons.landmark,
+                        color: Colors.white,
+                        size: 19,
+                      ),
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: Text(
+                          'Landmark awal: ${route.steps.first.landmarkName}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ]),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 12),

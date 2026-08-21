@@ -196,12 +196,13 @@ class FakeMapService extends MapService {
 
 class FakeTextToSpeechService extends TextToSpeechService {
   final List<String> spokenTexts = [];
+  int stopCount = 0;
 
   @override
   Future<void> speak(String text) async => spokenTexts.add(text);
 
   @override
-  Future<void> stop() async {}
+  Future<void> stop() async => stopCount++;
 }
 
 class BlockingTextToSpeechService extends TextToSpeechService {

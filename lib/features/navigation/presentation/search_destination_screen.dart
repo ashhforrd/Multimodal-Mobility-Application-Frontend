@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/models/destination.dart';
 import '../../../data/models/geo_point.dart';
 import '../../../data/services/map_service.dart';
+import '../../../shared/widgets/app_entrance.dart';
 import '../../../shared/widgets/navigation_map.dart';
 import '../application/destination_search_controller.dart';
 import '../application/navigation_controller.dart';
@@ -26,6 +27,18 @@ class _SearchDestinationScreenState
   bool isResolvingMapDestination = false;
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final navigation = ref.read(navigationProvider);
+      if (navigation.currentPosition == null && !navigation.isLoadingLocation) {
+        ref.read(navigationProvider.notifier).loadCurrentLocation();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final navigation = ref.watch(navigationProvider);
     final search = ref.watch(destinationSearchProvider);
@@ -41,23 +54,25 @@ class _SearchDestinationScreenState
                 SliverPadding(
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
                   sliver: SliverToBoxAdapter(
-                    child: _Header(
-                      queryChanged: (value) {
-                        setState(() {
-                          query = value;
-                          if (value.trim().isEmpty) selected = null;
-                        });
-                        if (value.trim().isEmpty) {
-                          ref.read(destinationSearchProvider.notifier).clear();
-                        }
-                      },
-                      onSearch: _search,
-                      isSearching: search.isSearching,
-                      isLoadingLocation: navigation.isLoadingLocation,
-                      isUsingCurrentLocation:
-                          navigation.currentPosition != null,
-                      onUseCurrentLocation: _useCurrentLocation,
-                      onSelectFromMap: _openMapPicker,
+                    child: AppEntrance(
+                      child: _Header(
+                        queryChanged: (value) {
+                          setState(() {
+                            query = value;
+                            if (value.trim().isEmpty) selected = null;
+                          });
+                          if (value.trim().isEmpty) {
+                            ref
+                                .read(destinationSearchProvider.notifier)
+                                .clear();
+                          }
+                        },
+                        onSearch: _search,
+                        isSearching: search.isSearching,
+                        isLoadingLocation: navigation.isLoadingLocation,
+                        hasCurrentLocation: navigation.currentPosition != null,
+                        onSelectFromMap: _openMapPicker,
+                      ),
                     ),
                   ),
                 ),
@@ -65,16 +80,18 @@ class _SearchDestinationScreenState
                   SliverPadding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
                     sliver: SliverToBoxAdapter(
-                      child: _SelectedMapDestination(
-                        destination: selected!,
-                        currentPosition: navigation.currentPosition,
-                        isResolving: isResolvingMapDestination,
-                        onChange: _openMapPicker,
-                        onConfirm: isResolvingMapDestination ||
-                                navigation.isLoadingRoute
-                            ? null
-                            : () => _openRoutePreview(selected!),
-                        isConfirming: navigation.isLoadingRoute,
+                      child: AppEntrance(
+                        child: _SelectedMapDestination(
+                          destination: selected!,
+                          currentPosition: navigation.currentPosition,
+                          isResolving: isResolvingMapDestination,
+                          onChange: _openMapPicker,
+                          onConfirm: isResolvingMapDestination ||
+                                  navigation.isLoadingRoute
+                              ? null
+                              : () => _openRoutePreview(selected!),
+                          isConfirming: navigation.isLoadingRoute,
+                        ),
                       ),
                     ),
                   )
@@ -82,29 +99,32 @@ class _SearchDestinationScreenState
                   SliverPadding(
                     padding: const EdgeInsets.symmetric(horizontal: 20),
                     sliver: SliverToBoxAdapter(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              search.hasSearched
-                                  ? 'Hasil pencarian'
-                                  : 'Cari tujuan nyata',
-                              style: const TextStyle(
-                                fontSize: 17,
-                                letterSpacing: -.34,
-                                fontWeight: FontWeight.w700,
+                      child: AppEntrance(
+                        delay: const Duration(milliseconds: 60),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                search.hasSearched
+                                    ? 'Hasil pencarian'
+                                    : 'Cari tujuan nyata',
+                                style: const TextStyle(
+                                  fontSize: 17,
+                                  letterSpacing: -.34,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            search.isSearching
-                                ? 'Mencari…'
-                                : '${items.length} lokasi',
-                            style: const TextStyle(color: AppTheme.muted),
-                          ),
-                        ],
+                            const SizedBox(width: 12),
+                            Text(
+                              search.isSearching
+                                  ? 'Mencari…'
+                                  : '${items.length} lokasi',
+                              style: const TextStyle(color: AppTheme.muted),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -134,15 +154,21 @@ class _SearchDestinationScreenState
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
                         itemBuilder: (_, index) {
                           final destination = items[index];
-                          return _DestinationTile(
-                            destination: destination,
-                            selected: selected?.id == destination.id,
-                            onTap: () => setState(() => selected = destination),
-                            onConfirm: navigation.isLoadingRoute
-                                ? null
-                                : () => _openRoutePreview(destination),
-                            isConfirming: navigation.isLoadingRoute &&
-                                selected?.id == destination.id,
+                          return AppEntrance(
+                            delay: Duration(
+                              milliseconds: (index * 45).clamp(0, 225),
+                            ),
+                            child: _DestinationTile(
+                              destination: destination,
+                              selected: selected?.id == destination.id,
+                              onTap: () =>
+                                  setState(() => selected = destination),
+                              onConfirm: navigation.isLoadingRoute
+                                  ? null
+                                  : () => _openRoutePreview(destination),
+                              isConfirming: navigation.isLoadingRoute &&
+                                  selected?.id == destination.id,
+                            ),
                           );
                         },
                       ),
@@ -157,16 +183,6 @@ class _SearchDestinationScreenState
   }
 
   bool get _hasMapSelection => selected?.id.startsWith('map-') ?? false;
-
-  Future<void> _useCurrentLocation() async {
-    await ref.read(navigationProvider.notifier).loadCurrentLocation();
-    if (!mounted) return;
-    final message = ref.read(navigationProvider).locationMessage ??
-        'Lokasi saat ini digunakan sebagai titik awal.';
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
 
   Future<void> _search() async {
     FocusScope.of(context).unfocus();
@@ -360,18 +376,16 @@ class _Header extends StatelessWidget {
     required this.queryChanged,
     required this.onSearch,
     required this.isSearching,
-    required this.onUseCurrentLocation,
     required this.onSelectFromMap,
     required this.isLoadingLocation,
-    required this.isUsingCurrentLocation,
+    required this.hasCurrentLocation,
   });
 
   final ValueChanged<String> queryChanged;
   final VoidCallback onSearch;
-  final VoidCallback onUseCurrentLocation;
   final VoidCallback onSelectFromMap;
   final bool isLoadingLocation;
-  final bool isUsingCurrentLocation;
+  final bool hasCurrentLocation;
   final bool isSearching;
 
   @override
@@ -484,31 +498,70 @@ class _Header extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            Row(children: [
-              Expanded(
-                child: _HeaderAction(
-                  actionKey: const Key('current-location-action'),
-                  icon: isUsingCurrentLocation
-                      ? LucideIcons.circleCheck
-                      : LucideIcons.locateFixed,
-                  label: isLoadingLocation
-                      ? 'Mencari lokasi…'
-                      : isUsingCurrentLocation
-                          ? 'Lokasi saat ini digunakan'
-                          : 'Gunakan lokasi saat ini',
-                  onTap: isLoadingLocation ? null : onUseCurrentLocation,
-                  isSuccess: isUsingCurrentLocation && !isLoadingLocation,
+            _LocationStatus(
+              isLoading: isLoadingLocation,
+              isAvailable: hasCurrentLocation,
+            ),
+            const SizedBox(height: 10),
+            _HeaderAction(
+              icon: LucideIcons.mapPinned,
+              label: 'Pilih melalui peta',
+              onTap: isLoadingLocation ? null : onSelectFromMap,
+            ),
+          ],
+        ),
+      );
+}
+
+class _LocationStatus extends StatelessWidget {
+  const _LocationStatus({
+    required this.isLoading,
+    required this.isAvailable,
+  });
+
+  final bool isLoading;
+  final bool isAvailable;
+
+  @override
+  Widget build(BuildContext context) => AnimatedSwitcher(
+        duration: const Duration(milliseconds: 220),
+        transitionBuilder: (child, animation) => FadeTransition(
+          opacity: animation,
+          child: SizeTransition(sizeFactor: animation, child: child),
+        ),
+        child: Row(
+          key: ValueKey((isLoading, isAvailable)),
+          children: [
+            if (isLoading)
+              const SizedBox.square(
+                dimension: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            else
+              Icon(
+                isAvailable ? LucideIcons.locateFixed : LucideIcons.mapPinOff,
+                color: Colors.white,
+                size: 17,
+              ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                isLoading
+                    ? 'Menentukan titik awal…'
+                    : isAvailable
+                        ? 'Titik awal otomatis memakai lokasi saat ini'
+                        : 'Lokasi saat ini diperlukan sebagai titik awal',
+                style: const TextStyle(
+                  color: Color(0xFFD9E9FF),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  letterSpacing: -.24,
                 ),
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: _HeaderAction(
-                  icon: LucideIcons.mapPinned,
-                  label: 'Pilih melalui peta',
-                  onTap: onSelectFromMap,
-                ),
-              ),
-            ]),
+            ),
           ],
         ),
       );
@@ -519,35 +572,19 @@ class _HeaderAction extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
-    this.actionKey,
-    this.isSuccess = false,
   });
 
-  final Key? actionKey;
   final IconData icon;
   final String label;
   final VoidCallback? onTap;
-  final bool isSuccess;
 
   @override
   Widget build(BuildContext context) => AnimatedContainer(
-        key: actionKey,
         duration: const Duration(milliseconds: 220),
         curve: Curves.easeOutCubic,
         decoration: BoxDecoration(
-          color: isSuccess
-              ? AppTheme.success
-              : Colors.white.withValues(alpha: .14),
+          color: Colors.white.withValues(alpha: .14),
           borderRadius: BorderRadius.circular(14),
-          boxShadow: isSuccess
-              ? const [
-                  BoxShadow(
-                    color: Color(0x3315803D),
-                    blurRadius: 12,
-                    offset: Offset(0, 5),
-                  ),
-                ]
-              : null,
         ),
         child: Material(
           color: Colors.transparent,
@@ -659,6 +696,12 @@ class _DestinationTile extends StatelessWidget {
               key: ValueKey('preview-route-${destination.id}'),
               tooltip: 'Lihat pratinjau rute',
               onPressed: onConfirm,
+              style: IconButton.styleFrom(
+                foregroundColor: Colors.white,
+                backgroundColor: AppTheme.primary,
+                disabledForegroundColor: Colors.white,
+                disabledBackgroundColor: AppTheme.primary,
+              ),
               icon: isConfirming
                   ? const SizedBox(
                       width: 18,

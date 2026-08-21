@@ -5,6 +5,7 @@ import 'package:lucide_icons_flutter/lucide_icons.dart';
 
 import '../../../core/constants/app_constants.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/app_entrance.dart';
 import '../../../shared/widgets/navigation_map.dart';
 import '../../voice/presentation/voice_interaction_panel.dart';
 import '../application/navigation_controller.dart';
@@ -73,71 +74,109 @@ class _ActiveNavigationScreenState
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
           children: [
-            NavigationMap(
-              key: const Key('active-navigation-map'),
-              route: route,
-              currentPosition: navigation.currentPosition,
-              destination: route.destination,
-              height: 250,
-              followUser: true,
+            AppEntrance(
+              child: NavigationMap(
+                key: const Key('active-navigation-map'),
+                route: route,
+                currentPosition: navigation.currentPosition,
+                destination: route.destination,
+                height: 250,
+                followUser: true,
+              ),
             ),
             const SizedBox(height: 14),
-            _JourneySummary(
-              remainingDistanceMeters: navigation.remainingDistanceMeters,
-              estimatedMinutes: navigation.estimatedRemainingMinutes,
+            AppEntrance(
+              delay: const Duration(milliseconds: 50),
+              child: _JourneySummary(
+                remainingDistanceMeters: navigation.remainingDistanceMeters,
+                estimatedMinutes: navigation.estimatedRemainingMinutes,
+              ),
             ),
             const SizedBox(height: 12),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 350),
-              child: NavigationInstructionCard(
-                key: ValueKey(navigation.activeInstruction),
-                instruction: navigation.activeInstruction,
-                landmark: navigation.activeStep!.landmarkName,
-                distance: navigation.distanceToNextActionPoint,
+            AppEntrance(
+              delay: const Duration(milliseconds: 100),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(.03, 0),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                ),
+                child: NavigationInstructionCard(
+                  key: ValueKey(navigation.activeInstruction),
+                  instruction: navigation.activeInstruction,
+                  landmark: navigation.activeStep!.landmarkName,
+                  distance: navigation.distanceToNextActionPoint,
+                ),
               ),
             ),
             const SizedBox(height: 10),
-            Card(
-              child: ListTile(
-                contentPadding: const EdgeInsets.all(14),
-                leading: Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFEAF2FF),
-                    borderRadius: BorderRadius.circular(14),
+            AppEntrance(
+              delay: const Duration(milliseconds: 150),
+              child: Card(
+                child: ListTile(
+                  contentPadding: const EdgeInsets.all(14),
+                  leading: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEAF2FF),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(
+                      LucideIcons.signpost,
+                      color: AppTheme.primary,
+                      size: 21,
+                    ),
                   ),
-                  child: const Icon(
-                    LucideIcons.signpost,
-                    color: AppTheme.primary,
-                    size: 21,
+                  title: const Text('Instruksi berikutnya'),
+                  subtitle: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 250),
+                    child: Text(
+                      navigation.nextStep?.instruction ??
+                          'Anda telah mencapai tujuan.',
+                      key: ValueKey(navigation.nextStep?.id),
+                    ),
                   ),
-                ),
-                title: const Text('Instruksi berikutnya'),
-                subtitle: Text(
-                  navigation.nextStep?.instruction ??
-                      'Anda telah mencapai tujuan.',
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            Row(children: [
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => _openSheet(const VoiceInteractionPanel()),
-                  icon: const Icon(LucideIcons.mic, size: 19),
-                  label: const Text('Tanyakan arah'),
+            AppEntrance(
+              delay: const Duration(milliseconds: 200),
+              child: Row(children: [
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: () => _openSheet(const VoiceInteractionPanel()),
+                    icon: const Icon(LucideIcons.mic, size: 19),
+                    label: const Text('Tanyakan arah'),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: FilledButton.tonalIcon(
-                  onPressed: _openManualFeedback,
-                  icon: const Icon(LucideIcons.lifeBuoy, size: 19),
-                  label: const Text('Buka bantuan'),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.tonalIcon(
+                    onPressed: _openManualFeedback,
+                    icon: const Icon(LucideIcons.lifeBuoy, size: 19),
+                    label: const Text('Buka bantuan'),
+                  ),
                 ),
+              ]),
+            ),
+            const SizedBox(height: 10),
+            AppEntrance(
+              delay: const Duration(milliseconds: 250),
+              child: FilledButton.tonalIcon(
+                key: const Key('finish-journey-action'),
+                onPressed: _confirmFinishJourney,
+                icon: const Icon(LucideIcons.flag, size: 19),
+                label: const Text('Selesai perjalanan'),
               ),
-            ]),
+            ),
             if (kShowDemoControls) ...[
               const SizedBox(height: 22),
               const Text(
@@ -205,6 +244,40 @@ class _ActiveNavigationScreenState
     await ref.read(navigationProvider.notifier).markOffRoute();
     if (!mounted || _openingRecovery) return;
     await _openRecovery();
+  }
+
+  Future<void> _confirmFinishJourney() => showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          icon: const Icon(
+            LucideIcons.flag,
+            color: AppTheme.primary,
+            size: 28,
+          ),
+          title: const Text('Selesaikan perjalanan?'),
+          content: const Text(
+            'Konfirmasi jika Anda sudah tiba atau ingin menghentikan navigasi.',
+          ),
+          actions: [
+            FilledButton.tonal(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Batal'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(dialogContext);
+                _finishJourney();
+              },
+              child: const Text('Ya, selesai'),
+            ),
+          ],
+        ),
+      );
+
+  Future<void> _finishJourney() async {
+    final completion = ref.read(navigationProvider.notifier).finishJourney();
+    if (mounted) context.go('/');
+    await completion;
   }
 }
 

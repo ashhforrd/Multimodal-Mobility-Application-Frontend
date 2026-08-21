@@ -97,5 +97,19 @@ void main() {
       expect(safeController.state.currentRoute, isNull);
       expect(safeController.state.routeErrorMessage, contains('GPS'));
     });
+
+    test('selesai perjalanan menghentikan audio dan membersihkan rute',
+        () async {
+      await controller.selectDestination(testDestination);
+      await controller.start();
+
+      await controller.finishJourney();
+
+      expect(controller.state.routeStatus, RouteStatus.idle);
+      expect(controller.state.currentRoute, isNull);
+      expect(controller.state.selectedDestination, isNull);
+      expect(controller.state.currentPosition, testOrigin);
+      expect(tts.stopCount, 1);
+    });
   });
 }

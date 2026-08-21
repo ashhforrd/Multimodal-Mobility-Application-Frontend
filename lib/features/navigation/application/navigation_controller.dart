@@ -125,6 +125,18 @@ class NavigationController extends StateNotifier<NavigationState> {
     );
   }
 
+  Future<void> finishJourney() async {
+    final positionSubscription = _positionSubscription;
+    _positionSubscription = null;
+    _alertedSteps.clear();
+    state = NavigationState(
+      currentPosition: state.currentPosition,
+      locationMessage: state.locationMessage,
+    );
+    await positionSubscription?.cancel();
+    await _textToSpeechService.stop();
+  }
+
   Future<void> start() async {
     final route = state.currentRoute;
     if (route == null) return;
@@ -191,6 +203,8 @@ class NavigationController extends StateNotifier<NavigationState> {
 
     if (distance <= MapService.stepCompletionThresholdMeters &&
         activeStep.actionType == RouteActionType.arrive) {
+      final positionSubscription = _positionSubscription;
+      _positionSubscription = null;
       state = state.copyWith(
         routeStatus: RouteStatus.completed,
         distanceToNextActionPoint: 0,
@@ -198,6 +212,7 @@ class NavigationController extends StateNotifier<NavigationState> {
         estimatedRemainingMinutes: 0,
         isActionAlertVisible: false,
       );
+      await positionSubscription?.cancel();
       await _textToSpeechService.speak('Anda telah tiba di tujuan.');
       return;
     }
