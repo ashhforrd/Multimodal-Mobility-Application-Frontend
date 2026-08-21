@@ -6,3 +6,6 @@ build/
 android/local.properties
 ios/Flutter/Generated.xcconfig
 ios/Flutter/flutter_export_environment.sh
+.DS_Store
+**/.DS_Store
+.vscode/
