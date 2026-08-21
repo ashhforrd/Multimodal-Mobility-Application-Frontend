@@ -68,7 +68,17 @@ void main() {
     await tester.tap(resultTile);
     await tester.pumpAndSettle();
 
-    expect(find.text('Lihat pratinjau rute'), findsOneWidget);
+    expect(find.text('Lihat pratinjau rute'), findsNothing);
+    expect(find.text('Pratinjau rute'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('preview-route-library')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    expect(find.text('Pratinjau rute'), findsOneWidget);
+    await tester.pageBack();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
   });
 
   testWidgets('layar pencarian tidak overflow pada ponsel sempit',
@@ -135,9 +145,18 @@ void main() {
       find.text('Perpustakaan Pusat', skipOffstage: false),
       findsWidgets,
     );
-    expect(find.text('Lihat pratinjau rute'), findsOneWidget);
+    expect(find.text('Tujuan dipilih'), findsOneWidget);
+    expect(find.byType(LinearProgressIndicator), findsNothing);
+    expect(find.text('Lihat pratinjau rute'), findsNothing);
 
-    await tester.tap(find.text('Lihat pratinjau rute'));
+    final previewAction =
+        find.byKey(const ValueKey('preview-route-map-reverse-library'));
+    expect(tester.widget<IconButton>(previewAction).onPressed, isNotNull);
+    await tester.ensureVisible(previewAction);
+    await tester.pump();
+    await tester.tap(
+      previewAction,
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 350));
     expect(find.text('Pratinjau rute'), findsOneWidget);

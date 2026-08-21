@@ -63,13 +63,18 @@ class _SearchDestinationScreenState
                 ),
                 if (_hasMapSelection)
                   SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 120),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
                     sliver: SliverToBoxAdapter(
                       child: _SelectedMapDestination(
                         destination: selected!,
                         currentPosition: navigation.currentPosition,
                         isResolving: isResolvingMapDestination,
                         onChange: _openMapPicker,
+                        onConfirm: isResolvingMapDestination ||
+                                navigation.isLoadingRoute
+                            ? null
+                            : () => _openRoutePreview(selected!),
+                        isConfirming: navigation.isLoadingRoute,
                       ),
                     ),
                   )
@@ -123,7 +128,7 @@ class _SearchDestinationScreenState
                     )
                   else
                     SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 120),
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
                       sliver: SliverList.separated(
                         itemCount: items.length,
                         separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -133,6 +138,11 @@ class _SearchDestinationScreenState
                             destination: destination,
                             selected: selected?.id == destination.id,
                             onTap: () => setState(() => selected = destination),
+                            onConfirm: navigation.isLoadingRoute
+                                ? null
+                                : () => _openRoutePreview(destination),
+                            isConfirming: navigation.isLoadingRoute &&
+                                selected?.id == destination.id,
                           );
                         },
                       ),
@@ -142,67 +152,6 @@ class _SearchDestinationScreenState
             ),
           ),
         ),
-      ),
-      bottomNavigationBar: AnimatedSize(
-        duration: const Duration(milliseconds: 280),
-        curve: Curves.easeOutCubic,
-        child: selected == null
-            ? const SizedBox.shrink()
-            : SafeArea(
-                child: Container(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 16),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    border: Border(
-                      top: BorderSide(color: Color(0xFFE5ECF5)),
-                    ),
-                  ),
-                  child: Center(
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 680),
-                      child: FilledButton.icon(
-                        onPressed: navigation.isLoadingRoute
-                            ? null
-                            : () async {
-                                final success = await ref
-                                    .read(navigationProvider.notifier)
-                                    .selectDestination(selected!);
-                                if (!context.mounted) return;
-                                if (success) {
-                                  final selectedFromMap = _hasMapSelection;
-                                  final shouldChange =
-                                      await context.push<bool>('/preview');
-                                  if (!mounted || shouldChange != true) return;
-                                  setState(() => selected = null);
-                                  if (selectedFromMap) {
-                                    await _openMapPicker();
-                                  }
-                                } else {
-                                  final error = ref
-                                      .read(navigationProvider)
-                                      .routeErrorMessage;
-                                  ScaffoldMessenger.of(context)
-                                    ..hideCurrentSnackBar()
-                                    ..showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          error ?? 'Rute tidak dapat dibuat.',
-                                        ),
-                                      ),
-                                    );
-                                }
-                              },
-                        icon: const Icon(LucideIcons.route, size: 19),
-                        label: Text(
-                          navigation.isLoadingRoute
-                              ? 'Membuat rute…'
-                              : 'Lihat pratinjau rute',
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
       ),
     );
   }
@@ -226,6 +175,29 @@ class _SearchDestinationScreenState
           query,
           nearby: ref.read(navigationProvider).currentPosition,
         );
+  }
+
+  Future<void> _openRoutePreview(Destination destination) async {
+    setState(() => selected = destination);
+    final success = await ref
+        .read(navigationProvider.notifier)
+        .selectDestination(destination);
+    if (!mounted) return;
+    if (!success) {
+      final error = ref.read(navigationProvider).routeErrorMessage;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(error ?? 'Rute tidak dapat dibuat.')),
+        );
+      return;
+    }
+
+    final selectedFromMap = destination.id.startsWith('map-');
+    final shouldChange = await context.push<bool>('/preview');
+    if (!mounted || shouldChange != true) return;
+    setState(() => selected = null);
+    if (selectedFromMap) await _openMapPicker();
   }
 
   Future<void> _openMapPicker() async {
@@ -334,12 +306,16 @@ class _SelectedMapDestination extends StatelessWidget {
     required this.currentPosition,
     required this.isResolving,
     required this.onChange,
+    required this.onConfirm,
+    required this.isConfirming,
   });
 
   final Destination destination;
   final GeoPoint? currentPosition;
   final bool isResolving;
   final VoidCallback onChange;
+  final VoidCallback? onConfirm;
+  final bool isConfirming;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -366,6 +342,8 @@ class _SelectedMapDestination extends StatelessWidget {
             destination: destination,
             selected: true,
             onTap: onChange,
+            onConfirm: onConfirm,
+            isConfirming: isConfirming,
           ),
           const SizedBox(height: 10),
           FilledButton.tonalIcon(
@@ -613,11 +591,15 @@ class _DestinationTile extends StatelessWidget {
     required this.destination,
     required this.selected,
     required this.onTap,
+    required this.onConfirm,
+    required this.isConfirming,
   });
 
   final Destination destination;
   final bool selected;
   final VoidCallback onTap;
+  final VoidCallback? onConfirm;
+  final bool isConfirming;
 
   @override
   Widget build(BuildContext context) => AnimatedContainer(
@@ -673,20 +655,20 @@ class _DestinationTile extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Text(destination.address),
             ),
-            trailing: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 200),
-              child: selected
-                  ? const Icon(
-                      LucideIcons.circleCheck,
-                      key: ValueKey(true),
-                      color: AppTheme.primary,
+            trailing: IconButton.filled(
+              key: ValueKey('preview-route-${destination.id}'),
+              tooltip: 'Lihat pratinjau rute',
+              onPressed: onConfirm,
+              icon: isConfirming
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
                     )
-                  : const Icon(
-                      LucideIcons.chevronRight,
-                      key: ValueKey(false),
-                      color: AppTheme.muted,
-                      size: 20,
-                    ),
+                  : const Icon(LucideIcons.arrowRight, size: 19),
             ),
           ),
         ),
